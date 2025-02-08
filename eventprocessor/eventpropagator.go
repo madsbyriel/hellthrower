@@ -51,6 +51,7 @@ func (l *listener_vals) Init(config config.IConfig) *listener_vals {
             defer mutex.Unlock()
 
             robotgo.KeyDown("ctrl")
+            time.Sleep(time.Millisecond * time.Duration(config.GetDelayPerCharacter()))
             for _, char := range trigger.Output {
                 time.Sleep(time.Millisecond * time.Duration(config.GetDelayPerCharacter()))
                 robotgo.TypeStr(string(char))
