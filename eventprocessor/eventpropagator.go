@@ -2,6 +2,7 @@ package eventprocessor
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,24 @@ func RegisterEventProcessor(c *gfac.Container) {
 
 func (l *listener_vals) Init(config config.IConfig) *listener_vals {
     mutex := &sync.Mutex{}
+    processes, err := robotgo.Process()
+    if err != nil {
+        panic(err)
+    }
 
+    foundProcess := false
+    for _, p := range processes {
+        if strings.HasPrefix(p.Name, "helldivers2") {
+            foundProcess = true
+            break
+        }
+    }
+
+    if !foundProcess {
+        panic("Did not find process helldivers2")
+    }
+
+    fmt.Println("Now listening to events!")
     for _, trigger := range config.GetTriggers() {
         if trigger.Output == "" {
             fmt.Printf("The trigger (%v) has no output!\n", trigger.Trigger)
@@ -51,10 +69,11 @@ func (l *listener_vals) Init(config config.IConfig) *listener_vals {
             defer mutex.Unlock()
 
             robotgo.KeyDown("ctrl")
-            time.Sleep(time.Millisecond * time.Duration(config.GetDelayPerCharacter()))
             for _, char := range trigger.Output {
                 time.Sleep(time.Millisecond * time.Duration(config.GetDelayPerCharacter()))
-                robotgo.TypeStr(string(char))
+                robotgo.KeyDown(string(char))
+                time.Sleep(time.Millisecond * time.Duration(config.GetDelayPerCharacter()))
+                robotgo.KeyUp(string(char))
             }
             robotgo.KeyUp("ctrl")
         })

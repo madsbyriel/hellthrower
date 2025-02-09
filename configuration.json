@@ -1,13 +1,17 @@
 {
-    "delay_per_character": 100,
+    "delay_per_character": 25,
     "triggers": [
         {
-            "trigger": ["shift", "k"],
+            "trigger": ["shift", "1"],
             "output": "wdsss"
         },
         {
-            "trigger": ["shift", "l"],
-            "output": "wsdaw"
+            "trigger": ["shift", "2"],
+            "output": "wdsd"
+        },
+        {
+            "trigger": ["shift", "3"],
+            "output": "wdssd"
         }
     ]
 }
