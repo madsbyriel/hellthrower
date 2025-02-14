@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Hellthrower (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Hellthrower (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

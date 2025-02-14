@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Hellthrower.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Hellthrower">
+
+    <NavigationView
+        HorizontalAlignment="Stretch" 
+        VerticalAlignment="Stretch"
+        IsBackButtonVisible="Collapsed"
+        IsPaneOpen="False"
+        SelectedItem="{x:Bind DefaultPage}"
+        Content="{x:Bind ViewModel.SelectedContent, Mode=OneWay}"
+        SelectionChanged="OnSelectedContentChange"
+        IsBackEnabled="False">
+        <NavigationView.MenuItems>
+            <NavigationViewItem Name="DefaultPage" Icon="Play" Tag="RunningWindow">Running</NavigationViewItem>
+            <NavigationViewItem Icon="Play" Tag="CreateWindow">Running</NavigationViewItem>
+        </NavigationView.MenuItems>
+    </NavigationView>
+</Window>
