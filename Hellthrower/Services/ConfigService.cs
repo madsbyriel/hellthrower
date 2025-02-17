@@ -1,46 +1,53 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using Windows.System;
 using Hellthrower.Extensions;
 using Newtonsoft.Json;
 using Hellthrower.Models;
+using Microsoft.UI.Input;
 
 namespace Hellthrower.Services;
 
 public class ConfigService : IConfigService
 {
     private readonly ConfigModel _config;
+    private readonly string _fileName;
     
     public ConfigService()
     {
+        _config = new ConfigModel();
+        return;
         var appdata = Environment.GetEnvironmentVariable("APPDATA");
         if (appdata == null)
             throw new Exception("Did not find environment variable: APPDATA");
+        _fileName = $"{appdata}\\Hellthrower\\config.json";
 
         _config = new();
         
-        string dirPath = $"{appdata}\\Hellthrower";
-        string path = $"{dirPath}\\config.json";
-        if (!File.Exists(path))
+        if (!File.Exists(_fileName))
         {
-            Directory.CreateDirectory(dirPath);
-            File.Create(path).Close();
+            var split = _fileName.Split('\\');
+            var dirpath = "";
+            for (int i = 0; i < split.Length - 1; i++)
+            {
+                dirpath += $"{split[i]}\\";
+            }
+            
+            Directory.CreateDirectory(dirpath);
+            File.Create(_fileName).Close();
         }
 
-        string configFile = File.ReadAllText(path);
-        var model = JsonConvert.DeserializeObject<ConfigModelJson>(configFile);
+        string configFile = File.ReadAllText(_fileName);
+        var model = JsonConvert.DeserializeObject<ConfigModel>(configFile);
 
-        if (model is not null)
+        if (model is null)
         {
-            _config.Loadouts = model.Loadouts.Map(item =>
-                {
-                    return new Loadout
-                    {
-                        Name = item.Name,
-                        Keys = item.Keys.ToObservableCollection(),
-                        Stratagem = (EStratagem)item.Stratagem,
-                    };
-                }).ToObservableCollection();
+            _config = new ConfigModel();
+        }
+        else
+        {
+            _config = model;
         }
     }
     
@@ -48,18 +55,28 @@ public class ConfigService : IConfigService
 
     public void Save()
     {
-        throw new System.NotImplementedException();
+        return;
+        File.WriteAllText(_fileName, JsonConvert.SerializeObject(_config, Formatting.Indented));
     }
     
-    private class ConfigModelJson
+    private class ConfigModelJson(List<LoadoutJson> loadouts)
     {
-        public List<LoadOutJson> Loadouts { get; set; }
+        public List<LoadoutJson> Loadouts { get; set; } = loadouts;
     }
 
-    private class LoadOutJson
+    private class LoadoutJson(string name, List<StratagemBindingJson> stratagemBindings)
     {
-        public string Name { get; set; }
-        public int Stratagem { get; set; }
-        public List<int> Keys { get; set; }
+        public string Name { get; set; } = name;
+        public List<StratagemBindingJson> StratagemBindings { get; set; } = stratagemBindings;
+    }
+
+    private class StratagemBindingJson(List<TriggerJson> keys)
+    {
+        public List<TriggerJson> Keys { get; set; } = keys;
+    }
+    
+    private class TriggerJson(int key)
+    {
+        public int Key { get; set; } = key;
     }
 }

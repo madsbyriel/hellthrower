@@ -38,8 +38,10 @@
   <ItemGroup>
     <PackageReference Include="Autofac" Version="8.2.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="InputSimulatorCore" Version="1.0.5" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
+    <PackageReference Include="MouseKeyHook" Version="5.7.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
   <ItemGroup>
@@ -47,6 +49,9 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Pages\CreateLoadoutPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Pages\ViewLoadoutPage.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>

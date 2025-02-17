@@ -5,36 +5,58 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Hellthrower.Models"
+    xmlns:converters="using:Hellthrower.Converters"
+    xmlns:viewModels="using:Hellthrower.ViewModels"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-    <StackPanel>
-        <TextBlock FontSize="30">Create a new loadout!</TextBlock>
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            
-            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">Name: </TextBlock>
-            <TextBox Grid.Row="0" 
-                Grid.Column="1" 
-                Text="{x:Bind ViewModel.Name, Mode=TwoWay}" 
-                PlaceholderText="Name of your loadout" />
-            
-            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Stratagem: </TextBlock>
-            <NumberBox Grid.Row="1" 
-                Grid.Column="1" 
-                Text="{x:Bind ViewModel.Stratagem, Mode=TwoWay}" 
-                PlaceholderText="Pick stratagem" />
-            
-            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Add an activation trigger: </TextBlock>
-            <Button Grid.Row="2" Grid.Column="1" Name="ListeningButton" Click="OnFindKeyClick">Bind me!</Button>
-        </Grid>
+    <Page.Resources>
+        <converters:StratagemEnumToText x:Key="StratagemEnumToText"/>
         
+        <DataTemplate x:Key="StratagemTemplate" x:DataType="models:Stratagem">
+            <TextBlock Text="{x:Bind StratagemEnum, Mode=OneWay, Converter={StaticResource StratagemEnumToText}}"/>
+        </DataTemplate>
+        
+        <DataTemplate 
+            x:Key="StratagemBinding" 
+            x:DataType="viewModels:CreateStratagemBindingVM">
+            <Expander
+                Margin="10"
+                Header="{x:Bind Stratagem.StratagemEnum, Mode=OneWay, Converter={StaticResource StratagemEnumToText}}">
+                <StackPanel>
+                    <Button Click="AddATrigger">Add a trigger</Button>
+                    <ListView
+                        SelectionMode="None"
+                        ItemTemplate="{StaticResource TriggerTemplate}"
+                        ItemsSource="{x:Bind Triggers, Mode=OneWay}" />
+                </StackPanel>
+            </Expander>
+        </DataTemplate>
+            
+        <DataTemplate 
+            x:Key="TriggerTemplate"
+            x:DataType="models:Trigger">
+            <Button Click="BindTrigger">Bind me!</Button>
+        </DataTemplate>
+    </Page.Resources>
+    <StackPanel>
+        <TextBlock Margin="10" Name="ErrorText"></TextBlock>
+        <TextBox 
+            Text="{x:Bind ViewModel.Name, Mode=TwoWay}" 
+            PlaceholderText="Loadout name" 
+            Margin="10" />
+        <ComboBox 
+            Margin="10"
+            PlaceholderText="Add a stratagem" 
+            ItemsSource="{x:Bind ViewModel.AllStratagems, Mode=OneWay}" 
+            ItemTemplate="{StaticResource StratagemTemplate}"
+            SelectionChanged="ComboBoxSelected" />
+        
+        <ListView
+            SelectionMode="None"
+            ItemTemplate="{StaticResource StratagemBinding}"
+            ItemsSource="{x:Bind ViewModel.Stratagems, Mode=OneWay}" />
+        
+        <Button Margin="10" Click="Save">Save loadout!</Button>
     </StackPanel>
 </Page>

@@ -1,11 +1,31 @@
 ﻿using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Hellthrower.ViewModels;
+using Microsoft.UI.Xaml;
 
 namespace Hellthrower.Models;
 
 public partial class Loadout : ObservableObject
 {
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private EStratagem _stratagem = EStratagem.Null;
-    [ObservableProperty] private ObservableCollection<int> _keys = new();
+    public Loadout(ObservableCollection<CreateStratagemBindingVM> stratagemBindings, string name)
+    {
+        StratagemBindings = stratagemBindings;
+        _name = name;
+    }
+    
+    public ObservableCollection<CreateStratagemBindingVM> StratagemBindings;
+    
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+    
+    private string _name;
+
+    public string Tag
+    {
+        get => $"Loadout:{_name}";
+    }
 }
