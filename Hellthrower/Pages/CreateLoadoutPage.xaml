@@ -24,8 +24,10 @@
                 Margin="10"
                 Header="{x:Bind Stratagem.StratagemEnum, Mode=OneWay, Converter={StaticResource StratagemEnumToText}}">
                 <StackPanel>
-                    <Button Click="AddATrigger">Add a trigger</Button>
+                    <Button Click="DeleteStratagem">Remove this Stratagem</Button>
+                    <Button Margin="0, 5" Click="AddATrigger">Add a trigger</Button>
                     <ListView
+                        HorizontalAlignment="Left"
                         SelectionMode="None"
                         ItemTemplate="{StaticResource TriggerTemplate}"
                         ItemsSource="{x:Bind Triggers, Mode=OneWay}" />
@@ -36,7 +38,10 @@
         <DataTemplate 
             x:Key="TriggerTemplate"
             x:DataType="models:Trigger">
-            <Button Click="BindTrigger">Bind me!</Button>
+            <StackPanel HorizontalAlignment="Left" Orientation="Horizontal">
+                <Button Width="100" HorizontalAlignment="Left" Loaded="OnTriggerButtonLoad" Click="BindTrigger">Bind me!</Button>
+                <Button Margin="5, 0" Click="DeleteTrigger">Delete</Button>
+            </StackPanel>
         </DataTemplate>
     </Page.Resources>
     <StackPanel>

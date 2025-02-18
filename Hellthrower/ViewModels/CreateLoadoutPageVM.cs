@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hellthrower.Models;
 using Microsoft.UI.Xaml;
+using Newtonsoft.Json;
 
 namespace Hellthrower.ViewModels;
 
@@ -16,6 +17,8 @@ public partial class CreateLoadoutPageVM : VMBase
     }
 
     public readonly ObservableCollection<CreateStratagemBindingVM> Stratagems = new();
+    
+    [JsonIgnore]
     public ObservableCollection<Stratagem> AllStratagems => Stratagem.Stratagems;
 }
 

@@ -5,5 +5,5 @@ namespace Hellthrower.Models;
 
 public partial class ConfigModel : ObservableObject
 {
-    [ObservableProperty] private ObservableCollection<Loadout> _loadouts = new();
+    public readonly ObservableCollection<Loadout> Loadouts = new();
 }

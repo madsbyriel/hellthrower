@@ -6,15 +6,12 @@ using Microsoft.UI.Xaml;
 
 namespace Hellthrower.Models;
 
-public partial class Loadout : ObservableObject
+public partial class Loadout(
+    ObservableCollection<CreateStratagemBindingVM> stratagemBindings,
+    string name)
+    : ObservableObject
 {
-    public Loadout(ObservableCollection<CreateStratagemBindingVM> stratagemBindings, string name)
-    {
-        StratagemBindings = stratagemBindings;
-        _name = name;
-    }
-    
-    public ObservableCollection<CreateStratagemBindingVM> StratagemBindings;
+    public readonly ObservableCollection<CreateStratagemBindingVM> StratagemBindings = stratagemBindings;
     
     public string Name
     {
@@ -22,7 +19,7 @@ public partial class Loadout : ObservableObject
         set => SetProperty(ref _name, value);
     }
     
-    private string _name;
+    private string _name = name;
 
     public string Tag
     {

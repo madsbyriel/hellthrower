@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using Windows.System;
-using CommunityToolkit.Mvvm.ComponentModel;
 using Hellthrower.Extensions;
 using Hellthrower.Models;
 using Hellthrower.Services;
@@ -16,7 +15,6 @@ public sealed partial class CreateLoadoutPage : Page
 {
     private readonly IConfigService _configService;
     private readonly IKeyHooker _keyHooker;
-    private bool _isListening;
 
     public CreateLoadoutPage(CreateLoadoutPageVM viewModel, IConfigService configService, IKeyHooker keyHooker)
     {
@@ -28,11 +26,6 @@ public sealed partial class CreateLoadoutPage : Page
     }
 
     public CreateLoadoutPageVM ViewModel { get; set; }
-
-    private void OnAddLoadout(object sender, RoutedEventArgs e)
-    {
-
-    }
 
     private void ComboBoxSelected(object sender, SelectionChangedEventArgs e)
     {
@@ -105,8 +98,18 @@ public sealed partial class CreateLoadoutPage : Page
             ErrorText.Text = "There are no stratagems in the loadout?!";
             return;
         }
+        
+        ViewModel.Stratagems.ForEach(s =>
+        {
+            for (int i = s.Triggers.Count - 1; 0 <= i; i--)
+            {
+                var t = s.Triggers[i];
+                if (t.Key == 0 || t.Key == null)
+                    s.Triggers.RemoveAt(i);
+            }
+        });
 
-        var loadout = new Loadout(ViewModel.Stratagems, ViewModel.Name);
+        var loadout = new Loadout(ViewModel.Stratagems.Map(x => x).ToObservableCollection(), ViewModel.Name);
         
         _configService.GetConfigModel().Loadouts.Add(loadout);
         
@@ -115,6 +118,30 @@ public sealed partial class CreateLoadoutPage : Page
         
         ViewModel.Stratagems.Clear();
         ViewModel.Name = string.Empty;
-        
+    }
+
+    private void DeleteTrigger(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.DataContext is not Trigger trigger) return;
+        foreach (var createStratagemBindingVm in ViewModel.Stratagems)
+        {
+            if (createStratagemBindingVm.Triggers.Contains(trigger))
+            {
+                createStratagemBindingVm.Triggers.Remove(trigger);
+                break;
+            }
+        }
+    }
+
+    private void OnTriggerButtonLoad(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn) return;
+        btn.Content = "Bind me!";
+    }
+
+    private void DeleteStratagem(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.DataContext is not CreateStratagemBindingVM vm) return;
+        ViewModel.Stratagems.Remove(vm);
     }
 }

@@ -5,7 +5,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:converters="using:Hellthrower.Converters"
     xmlns:components="using:Hellthrower.Components"
     xmlns:models="using:Hellthrower.Models"
     mc:Ignorable="d"
@@ -21,8 +20,8 @@
         SelectionChanged="OnSelectedContentChange"
         IsBackEnabled="False">
         <NavigationView.MenuItems>
-            <NavigationViewItem Name="DefaultPage" Icon="Play" Tag="RunningWindow">Running</NavigationViewItem>
-            <NavigationViewItem Icon="Play" Tag="CreateWindow">Running</NavigationViewItem>
+            <NavigationViewItem Name="DefaultPage" Icon="Play" Tag="RunningWindow">Activate</NavigationViewItem>
+            <NavigationViewItem Icon="Add" Tag="CreateWindow">Create</NavigationViewItem>
             <components:CustomNavigationViewItem
                 Content="Loadouts" 
                 Icon="Page2" 

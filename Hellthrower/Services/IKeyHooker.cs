@@ -6,6 +6,6 @@ namespace Hellthrower.Services;
 public interface IKeyHooker
 {
     public event Action<int> OnKeyPress;
-    public void SubscribeCombination(HashSet<int> keyCombination, Action action);
-    public void UnsubscribeCombination(HashSet<int> keyCombination);
+    public void SubscribeCombination(IEnumerable<(HashSet<int>, Action)> combActions);
+    public void UnsubscribeAll();
 }

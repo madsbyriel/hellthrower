@@ -11,8 +11,8 @@ public class KeyHooker : IKeyHooker
 {
     [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
-    
-    private Dictionary<HashSet<int>, (Action, bool)> _dict = new();
+    private Mutex _mutex = new Mutex();
+    private Dictionary<HashSet<int>, Action> _dict = new();
 
     private event Action LoopDone;
     
@@ -25,8 +25,7 @@ public class KeyHooker : IKeyHooker
     {
         while (true)
         {
-            LoopDone?.Invoke();
-
+            _mutex.WaitOne();
             bool[] arr = new bool[0xFE];
             
             for (int vKey = 0x01; vKey <= 0xFE; vKey++)
@@ -37,38 +36,37 @@ public class KeyHooker : IKeyHooker
                     OnKeyPress?.Invoke(vKey);
             }
             
-            foreach (var (keys, (action, expr)) in _dict)
+            foreach (var (keys, action) in _dict)
             {
                 var com = keys.Map(x => arr[x - 0x01]).Reduce((x, acc) => x && acc);
                 if (com)
                     action();
             }
             
+            _mutex.ReleaseMutex();
             Thread.Sleep(50);
         }
     }
 
     public event Action<int> OnKeyPress;
 
-    public void SubscribeCombination(HashSet<int> keyCombination, Action action)
+    public void SubscribeCombination(IEnumerable<(HashSet<int>, Action)> combActions)
     {
-        LoopDone += Add;
-        void Add()
+        _mutex.WaitOne();
+        _dict.Clear();
+        combActions.ForEach(t =>
         {
-            _dict.Add(keyCombination, (action, true));
-            LoopDone -= Add;
-        }
+            var (set, action) = t;
+            _dict.Add(set, action);
+        });
+        _mutex.ReleaseMutex();
     }
 
     
-    public void UnsubscribeCombination(HashSet<int> keyCombination)
+    public void UnsubscribeAll()
     {
-        LoopDone += Remove;
-
-        void Remove()
-        {
-            _dict.Remove(keyCombination);
-            LoopDone -= Remove;
-        }
+        _mutex.WaitOne();
+        _dict.Clear();
+        _mutex.ReleaseMutex();
     }
 }

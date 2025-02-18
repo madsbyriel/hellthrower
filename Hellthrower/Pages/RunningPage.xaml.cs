@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Windows.System;
+using Hellthrower.Extensions;
 using Hellthrower.Models;
 using Hellthrower.ViewModels;
 using Microsoft.UI.Xaml;
@@ -12,13 +15,12 @@ public sealed partial class RunningPage : Page
 {
     private DateTime _lastInvoke = DateTime.UnixEpoch;
     private readonly IKeyHooker _keyHooker;
+    private readonly Mutex _lock;
     
-    // Combination reference should remain same for lifetime
-    private readonly HashSet<int> _currentCombination = new();
-
     public RunningPage(RunningPageVM viewModel, 
         IKeyHooker keyHooker)
-    {
+    { 
+        _lock = new Mutex();
         _keyHooker = keyHooker;
         ViewModel = viewModel;
 
@@ -40,7 +42,7 @@ public sealed partial class RunningPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 button.Content = "Deactivate";
-                // ComboMenu.IsEnabled = false;
+                ComboMenu.IsEnabled = false;
             });
             
             Activate();
@@ -52,7 +54,7 @@ public sealed partial class RunningPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 button.Content = "Activate";
-                // ComboMenu.IsEnabled = true;
+                ComboMenu.IsEnabled = true;
             });
 
             Deactive();
@@ -66,24 +68,68 @@ public sealed partial class RunningPage : Page
 
     private void Deactive()
     {
-        // _keyHooker.UnsubscribeCombination(_currentCombination);
+        _keyHooker.UnsubscribeAll();
     }
 
     private void Activate()
-    {
-        // if (ComboMenu.SelectedItem is not Loadout loadout) return;
-        
-        // _keyHooker.SubscribeCombination(_currentCombination, CombinationAction);
-    }
-
-    private void CombinationAction()
     {
         if (_lastInvoke.AddSeconds(1) >= DateTime.Now) return;
         _lastInvoke = DateTime.Now;
 
         DispatcherQueue.TryEnqueue(() =>
         {
-            // if (ComboMenu.SelectedItem is not Loadout loadout) return;
+            if (ComboMenu.SelectedItem is not Loadout loadout) return;
+            var combActions = loadout.StratagemBindings.Map(l =>
+            {
+                var combination = l.Triggers.Fold((x, acc) =>
+                {
+                    acc.Add(x.Key);
+                    return acc;
+                }, new HashSet<int>());
+
+                var sequence = l.Stratagem.Sequence.Fold((x, acc) =>
+                {
+                    switch (x)
+                    {
+                        case 'w':
+                            acc.Add(VirtualKey.W);
+                            break;
+                        case 'a':
+                            acc.Add(VirtualKey.A);
+                            break;
+                        case 'd':
+                            acc.Add(VirtualKey.D);
+                            break;
+                        case 's':
+                            acc.Add(VirtualKey.S);
+                            break;
+                    }
+
+                    return acc;
+                }, new List<VirtualKey>());
+
+                var action = () =>
+                {
+                    _lock.WaitOne();
+
+                    KeyboardInput.SendKey((ushort)VirtualKey.LeftControl, false);
+                    sequence.ForEach(vkey =>
+                    {
+                        Thread.Sleep(40);
+                        KeyboardInput.SendKey((ushort)vkey, false);
+                        Thread.Sleep(40);
+                        KeyboardInput.SendKey((ushort)vkey, true);
+                    });
+                    Thread.Sleep(40);
+                    KeyboardInput.SendKey((ushort)VirtualKey.LeftControl, true);
+                    
+                    _lock.ReleaseMutex();
+                };
+
+                return (combination, action);
+            });
+            
+            _keyHooker.SubscribeCombination(combActions);
         });
     }
 }

@@ -6,12 +6,12 @@ namespace Hellthrower.ViewModels;
 
 public partial class ViewLoadoutPageVM : VMBase
 {
-    [ObservableProperty] private Loadout _loadout;
+    public readonly Loadout Loadout;
     private readonly IConfigService _configService;
 
     public ViewLoadoutPageVM(Loadout loadout, IConfigService configService)
     {
-        _loadout = loadout;
+        Loadout = loadout;
         _configService = configService;
     }
 }

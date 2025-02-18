@@ -16,15 +16,11 @@ public class ConfigService : IConfigService
     
     public ConfigService()
     {
-        _config = new ConfigModel();
-        return;
         var appdata = Environment.GetEnvironmentVariable("APPDATA");
         if (appdata == null)
             throw new Exception("Did not find environment variable: APPDATA");
         _fileName = $"{appdata}\\Hellthrower\\config.json";
 
-        _config = new();
-        
         if (!File.Exists(_fileName))
         {
             var split = _fileName.Split('\\');
@@ -55,7 +51,6 @@ public class ConfigService : IConfigService
 
     public void Save()
     {
-        return;
         File.WriteAllText(_fileName, JsonConvert.SerializeObject(_config, Formatting.Indented));
     }
     
