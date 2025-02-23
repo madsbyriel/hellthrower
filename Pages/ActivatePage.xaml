@@ -1,0 +1,21 @@
+﻿<Page x:Class="HellthrowerWPF.Pages.ActivatePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      Title="ActivatePage">
+    <Page.Resources>
+        <DataTemplate x:Key="LoadoutTemplate">
+            <TextBlock Text="{Binding Name}" />
+        </DataTemplate>
+    </Page.Resources>
+    <StackPanel>
+        <TextBlock FontSize="24">Choose a loadout to activate</TextBlock>
+        <ComboBox 
+            Loaded="LoadoutChooserLoad"
+            Name="ComboBox"
+            ItemTemplate="{StaticResource LoadoutTemplate}"/>
+        <Button Click="ActivateDeactivate">Activate</Button>
+    </StackPanel>
+</Page>

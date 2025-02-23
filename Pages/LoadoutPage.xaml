@@ -1,0 +1,122 @@
+﻿<Page x:Class="HellthrowerWPF.Pages.LoadoutPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:converters="clr-namespace:HellthrowerWPF.Converters"
+      mc:Ignorable="d"
+      Title="LoadoutPage">
+    <Page.Resources>
+        <converters:KeyToReadable x:Key="KeyToReadable" />
+        <DataTemplate x:Key="TriggerTemplate">
+            <Grid HorizontalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                
+                <Button
+                    Click="ListenForKey"
+                    Grid.Column="0"
+                    Grid.Row="0"
+                    Margin="0,0,10,0"
+                    Content="{Binding Key, Mode=OneWay, Converter={StaticResource KeyToReadable}}" />
+                <Button
+                    Click="DeleteKeybind"
+                    Grid.Row="0"
+                    Grid.Column="1">
+                    Delete
+                </Button>
+            </Grid>
+            
+        </DataTemplate>
+        
+        <DataTemplate x:Key="StratBinding">
+            <Expander
+                HorizontalAlignment="Stretch"
+                IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock 
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Text="{Binding Name, Mode=OneWay}" />
+                        <Button 
+                            Tag="{Binding Mode=OneWay}"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Click="DeleteStratagem">
+                            Delete
+                        </Button>
+                    </Grid>
+                </Expander.Header>
+                
+                <StackPanel>
+                    <Button 
+                        Tag="{Binding Mode=OneWay}" 
+                        Click="AddBinding">
+                        Add binding
+                    </Button>
+                    
+                    <ItemsControl
+                        Tag="{Binding Mode=OneWay}"
+                        Loaded="BindingsViewLoaded"
+                        ItemTemplate="{StaticResource TriggerTemplate}" />
+                </StackPanel>
+            </Expander>
+        </DataTemplate>
+        
+    </Page.Resources>
+    <StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions> 
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+            </Grid.RowDefinitions>
+            <TextBox 
+                Grid.Row="0" 
+                Grid.Column="0" 
+                Name="NameBox"
+                FontSize="24" 
+                Text="{Binding Load.Name, Mode=OneWay}" />
+            <Button 
+                Grid.Column="1"
+                Grid.Row="0"
+                Click="ChangeName">
+                Change name
+            </Button>
+            
+            <ComboBox
+                Name="StratagemComboBox"
+                Loaded="StratagemComboBoxLoad"
+                Grid.Row="1"
+                Grid.Column="0">
+            </ComboBox>
+            <Button
+                Grid.Row="1"
+                Grid.Column="1"
+                Click="AddStratagemBinding">
+                Add a stratagem
+            </Button>
+        </Grid>
+        
+        <ItemsControl
+            Name="StratagemsToShow"
+            Loaded="OnLoadouts"
+            ItemTemplate="{StaticResource StratBinding}" />
+    </StackPanel>
+</Page>

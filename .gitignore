@@ -1,0 +1,8 @@
+/bin
+/obj
+/.idea
+/.vs
+
+/HellthrowerWPF.csproj.user
+/HellthrowerWPF.sln.DotSettings.user
+
