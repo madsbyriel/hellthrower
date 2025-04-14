@@ -1,7 +1,7 @@
-from typing import Literal
+from typing import Counter
 import requests
+import json
 from bs4 import BeautifulSoup
-import csv
 # Target URL
 url = "http://helldivers.wiki.gg/wiki/Stratagems"
 
@@ -22,16 +22,16 @@ headers = {
 }
 
 class Stratagem:
-  def __init__(self, stratagem: str, code: list[str]) -> None:
-    self.stratagem = stratagem
-    self.code = code
+    counter = 0
+    def __init__(self, stratagem: str, code: list[str], link: str) -> None:
+        self.stratagem = stratagem
+        self.code = code
+        self.link = 'https://helldivers.wiki.gg' + link
+        self.id = Stratagem.counter
+        Stratagem.counter += 1
 
-  def __str__(self) -> str:
-    s = "{"
-    s += f"'stratagem': '{self.stratagem}',"
-    s += f"'code': {self.code}"
-    s += "}"
-    return s
+    def to_dict(self):
+        return {'stratagem': self.stratagem, 'code': self.code, 'link': self.link, 'id': self.id}
 
 data = []
 
@@ -51,6 +51,7 @@ try:
     for row in rows:
       try:
         title = row.find_all('td')[1].find('a')['title']
+        src = row.find_all('td')[0].find('img')['src']
         images = row.find_all('td')[2].find_all('img')
         code = []
         for image in images:
@@ -64,36 +65,19 @@ try:
           elif image['alt'] == 'Right Arrow.png':
             inp = 'L'
           code.append(inp)
-        data.append(Stratagem(title, code))
+        data.append(Stratagem(title, code, src))
       except:
         pass
-        # t = article['title'].text.strip() if article['title'] else None
-        # if t == None:
-        #   continue
-        # scraped_data.append({'title': t})
-
-        # title = article.find('h2').text.strip() if article.find('h2') else 'No title'
-        # link = article.find('a')['href'] if article.find('a') else 'No link'
-
-    # Save to CSV
-    with open('scraped_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['title']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(scraped_data)
-
-    print("Scraping completed successfully!")
 
 except requests.exceptions.RequestException as e:
     print(f"Error fetching the URL: {e}")
 except Exception as e:
     print(f"An error occurred: {e}")
 
-for d in data:
-  print(d)
 
+with open("stratagems.json", "w+") as f:
+    json.dump([d.to_dict() for d in data], f)
 
-
-
-
-
+with open("download_links.sh", "w+") as f:
+    f.write("#!/usr/bin/env bash\n")
+    f.writelines([f"curl {d.link} -o {d.id}.png\n" for d in data])
