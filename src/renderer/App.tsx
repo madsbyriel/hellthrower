@@ -20,7 +20,7 @@
 //   );
 // }
 //
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import AppNavbar from "./components/AppNavbar.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -30,33 +30,57 @@ import Activate from "./pages/Activate.tsx";
 import LoadoutPage from "./pages/LoadoutPage.tsx";
 import NewLoadoutPage from "./pages/NewLoadoutPage.tsx";
 import {
-  defaultLoadoutContext,
-  LoadoutContext,
+    defaultLoadoutContext,
+    LoadoutContext,
 } from "./pages/LoadoutContext.tsx";
+import {
+    defaultStratagemsContext,
+    StratagemsContext,
+} from "./components/StratagemContext.tsx";
+import StratagemsPage from "./pages/StratagemsPage.tsx";
 
 function App() {
-  const loadoutContext = defaultLoadoutContext();
+    const loadoutContext = defaultLoadoutContext();
+    const stratagemContext = defaultStratagemsContext();
 
-  return (
-    <Router>
-      <div className="App">
-        <LoadoutContext.Provider value={loadoutContext}>
-          <AppNavbar />
-          <main>
-            <Container className="py-4">
-              <Routes>
-                <Route path="/activate" element={<Activate />} />
-                <Route path="/loadout/new" element={<NewLoadoutPage />} />
-                <Route path="/loadout/:id" element={<LoadoutPage />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Container>
-          </main>
-        </LoadoutContext.Provider>
-      </div>
-    </Router>
-  );
+    return (
+        <Router>
+            <div className="App">
+                <StratagemsContext.Provider value={stratagemContext}>
+                    <LoadoutContext.Provider value={loadoutContext}>
+                        <AppNavbar />
+                        <main>
+                            <Container className="py-4">
+                                <Routes>
+                                    <Route
+                                        path="/activate"
+                                        element={<Activate />}
+                                    />
+                                    <Route
+                                        path="/loadout/new"
+                                        element={<NewLoadoutPage />}
+                                    />
+                                    <Route
+                                        path="/loadout/:id"
+                                        element={<LoadoutPage />}
+                                    />
+                                    <Route
+                                        path="/contact"
+                                        element={<Contact />}
+                                    />
+                                    <Route
+                                        path="/stratagems"
+                                        element={<StratagemsPage />}
+                                    />
+                                    <Route path="*" element={<NotFound />} />
+                                </Routes>
+                            </Container>
+                        </main>
+                    </LoadoutContext.Provider>
+                </StratagemsContext.Provider>
+            </div>
+        </Router>
+    );
 }
 
 export default App;

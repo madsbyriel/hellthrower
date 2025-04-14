@@ -1,19 +1,25 @@
 import { createContext, useState } from "react";
+import { Stratagem } from "../components/StratagemContext.tsx";
 
-interface LoadoutContextType {
+export interface LoadoutContextType {
   loadouts: Loadout[];
   addLoadout: (name: string) => string;
   setLoadouts: (value: React.SetStateAction<Loadout[]>) => void
 }
 
-interface Loadout {
+export interface Loadout {
   name: string;
-  id: number,
+  id: number;
   stratagemBindings: StratagemBinding[];
 }
 
-interface StratagemBinding {
-  name: string
+export interface StratagemBinding {
+  stratagem: Stratagem;
+  bindings: Binding[];
+}
+
+export interface Binding {
+    key: any
 }
 
 export function defaultLoadoutContext(): LoadoutContextType {

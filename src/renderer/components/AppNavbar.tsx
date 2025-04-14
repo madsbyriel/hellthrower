@@ -6,6 +6,8 @@ import { LoadoutContext } from "../pages/LoadoutContext.tsx";
 
 const AppNavbar = () => {
   const loadoutContext = useContext(LoadoutContext);
+  if (loadoutContext === undefined) return <p>Something went wrong!</p>
+
   let loadoutNavs: any[] = []
 
   if (loadoutContext.loadouts !== undefined) {
@@ -51,8 +53,8 @@ const AppNavbar = () => {
                 </NavDropdown.Item>
               </LinkContainer>
             </NavDropdown>
-            <LinkContainer to="/contact">
-              <Nav.Link>Contact</Nav.Link>
+            <LinkContainer to="/stratagems">
+              <Nav.Link>Stratagems</Nav.Link>
             </LinkContainer>
           </Nav>
         </Navbar.Collapse>

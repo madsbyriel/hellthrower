@@ -9,11 +9,12 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, globalShortcut } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import fs from 'fs';
 
 class AppUpdater {
   constructor() {
@@ -30,6 +31,16 @@ ipcMain.on('ipc-example', async (event, arg) => {
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
+
+ipcMain.handle('readStratagems', async (event) => {
+    try {
+        const data = fs.readFileSync('src/stratagems.json', 'utf-8');
+        return JSON.parse(data);
+    } catch (err) {
+        console.error("Error reading stratagems.json:", err)
+        throw err;
+    }
+})
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -127,6 +138,9 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+      globalShortcut.register('A', () => {
+          console.log('Ctrl+A pressed!')
+      })
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
