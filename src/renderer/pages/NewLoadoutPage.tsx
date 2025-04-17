@@ -8,8 +8,7 @@ export default function NewLoadoutPage() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    console.log(lContext.addLoadout(loadoutName))
-    console.log(lContext)
+    lContext?.addLoadout(loadoutName)
   };
 
   return (

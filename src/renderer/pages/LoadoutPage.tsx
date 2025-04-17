@@ -1,90 +1,144 @@
 import React, { FormEvent, useContext, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Loadout, LoadoutContext } from "./LoadoutContext.tsx";
-import { Accordion, Badge, Button, Col, Form, Row } from "react-bootstrap";
+import {
+    Binding,
+    Loadout,
+    LoadoutContext,
+    StratagemBinding,
+} from "./LoadoutContext.tsx";
+import { Accordion, Button, Col, Container, Form, Row } from "react-bootstrap";
 import {
     Stratagem,
     StratagemsContext,
 } from "../components/StratagemContext.tsx";
 
-export default function LoadoutPage() {
-    const { id } = useParams();
-    const numbersId = Number(id);
-    const loadoutContext = useContext(LoadoutContext);
+export default function LoadoutPage(loadout: Loadout): React.JSX.Element {
     const stratagemContext = useContext(StratagemsContext);
-    
-    const errorElement = <h1>Something went wrong!</h1>;
+    const loadoutContext = useContext(LoadoutContext);
 
-    if (
-        loadoutContext === undefined || loadoutContext.loadouts === undefined ||
-        stratagemContext === undefined
-    ) return errorElement;
-
-    const [uniqueId, setId] = useState<number>(stratagemContext.stratagems[0].id);
-
-    let loadout: Loadout | undefined = undefined;
-    for (const l of loadoutContext.loadouts) {
-        if (l.id === numbersId) {
-            loadout = l;
-            break;
-        }
+    if (stratagemContext == undefined || loadoutContext == undefined) {
+        return <h1>Something went wrong!</h1>;
     }
-    if (loadout == undefined) return errorElement;
+
+    let selectedStratagemId = stratagemContext.stratagems[0].id;
+
+    function onSubmit(): void {
+        console.log(`selectedStratagemId: ${selectedStratagemId}`);
+        const stratagem = findById(selectedStratagemId);
+
+        if (stratagem === undefined) {
+            throw new Error("Somehow the selected stratagem doesn't exist?");
+        }
+
+        loadout.stratagemBindings.push({ stratagem: stratagem, bindings: [] });
+        loadoutContext?.updateLoadouts();
+    }
+
+    function findById(id: number | undefined): Stratagem | undefined {
+        if (id == undefined) return undefined;
+        return stratagemContext?.stratagems.find((s) => s.id == id);
+    }
+
+    function onStratagemSelected(id: number | undefined) {
+        if (id == undefined) return;
+        selectedStratagemId = id;
+    }
 
     const options = stratagemContext.stratagems.map((e) => {
-        return <option key={e.id} value={e.id}>{e.stratagem}</option>;
+        return (
+            <option key={e.id} value={e.id}>
+                {e.stratagem}
+            </option>
+        );
     });
 
-    const bindings = loadout.stratagemBindings.map((e) => {
+    let someId = -1;
+    const stratBindings = loadout.stratagemBindings.map((stratBinding) => {
+        function addKeyBinding(e: StratagemBinding): void {
+            const newId = Math.max(...[0, ...e.bindings.map(e => e.id)]) + 1
+
+            e.bindings.push({
+                key: null,
+                id: newId,
+            });
+            loadoutContext?.updateLoadouts();
+        }
+
+        let bindingIds = -1;
+        const bindings = stratBinding.bindings.map((binding) => {
+            bindingIds += 1;
+            const deleteBinding = (
+                stratBinding: StratagemBinding,
+                id: number,
+            ) => {
+                const newBindings = stratBinding.bindings.filter(s => s.id != id)
+                stratBinding.bindings = newBindings;
+
+                loadoutContext.updateLoadouts();
+            };
+
+            return (
+                <Row key={bindingIds} className="mb-3">
+                    <Col xs={8}>
+                        <Button className="container-fluid">Somebinding</Button>
+                    </Col>
+                    <Col xs={4}>
+                        <Button
+                            onClick={() => deleteBinding(stratBinding, binding.id)}
+                            className="container-fluid"
+                            variant="danger"
+                        >
+                            Delete
+                        </Button>
+                    </Col>
+                </Row>
+            );
+        });
+
+        someId += 1;
         return (
-            <Accordion>
-                <Accordion.Item eventKey={e.stratagem.id.toString()}>
-                    <Accordion.Header>{e.stratagem.stratagem}</Accordion.Header>
+            <Accordion key={someId}>
+                <Accordion.Item eventKey={stratBinding.stratagem.id.toString()}>
+                    <Accordion.Header>
+                        {stratBinding.stratagem.stratagem}
+                    </Accordion.Header>
                     <Accordion.Body>
-                        <Button variant="primary">Click me to bind!</Button>
+                        {bindings}
+                        <Button
+                            className="container-fluid"
+                            onClick={() => addKeyBinding(stratBinding)}
+                            variant="primary"
+                        >
+                            Add a binding
+                        </Button>
                     </Accordion.Body>
                 </Accordion.Item>
             </Accordion>
         );
     });
 
-    function onSubmit(event: FormEvent<HTMLFormElement>): void {
-        event.preventDefault();
-        const stratagem = findById(uniqueId);
-        if (stratagem === undefined) {
-            throw new Error("Somehow the selected stratagem doesn't exist?");
-        }
-
-        loadout?.stratagemBindings.push({ stratagem: stratagem, bindings: [] });
-        loadoutContext?.setLoadouts([...loadoutContext.loadouts]);
-    }
-
-    function onChange(event: ChangeEvent<HTMLSelectElement>): void {
-        event.preventDefault();
-        setId(event.target.value);
-    }
-
-    function findById(id: number): Stratagem | undefined {
-        return stratagemContext?.stratagems.find((s) => s.id == id);
-    }
-
     return (
         <>
             <h1>{loadout.name}</h1>
-            {bindings}
+            {stratBindings}
             <hr />
-            <Form onSubmit={onSubmit}>
-                <Row>
-                    <Col>
-                        <Form.Select onChange={onChange}>
-                            {options}
-                        </Form.Select>
-                    </Col>
-                    <Col xs={2}>
-                        <Button type="submit" variant="success">Add</Button>
-                    </Col>
-                </Row>
-            </Form>
+            <Row>
+                <Col>
+                    <Form.Select
+                        onChange={(e) => onStratagemSelected(e.target.value)}
+                    >
+                        {options}
+                    </Form.Select>
+                </Col>
+                <Col xs={2}>
+                    <Button
+                        variant="success"
+                        onClick={() => onSubmit()}
+                    >
+                        Add
+                    </Button>
+                </Col>
+            </Row>
+            <footer>ASd</footer>
         </>
     );
 }

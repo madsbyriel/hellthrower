@@ -38,6 +38,7 @@ import {
     StratagemsContext,
 } from "./components/StratagemContext.tsx";
 import StratagemsPage from "./pages/StratagemsPage.tsx";
+import LoadoutRouter from "./components/LoadoutRouter.tsx";
 
 function App() {
     const loadoutContext = defaultLoadoutContext();
@@ -62,7 +63,7 @@ function App() {
                                     />
                                     <Route
                                         path="/loadout/:id"
-                                        element={<LoadoutPage />}
+                                        element={<LoadoutRouter />}
                                     />
                                     <Route
                                         path="/contact"

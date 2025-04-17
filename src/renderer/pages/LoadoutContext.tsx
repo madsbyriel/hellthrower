@@ -4,7 +4,8 @@ import { Stratagem } from "../components/StratagemContext.tsx";
 export interface LoadoutContextType {
   loadouts: Loadout[];
   addLoadout: (name: string) => string;
-  setLoadouts: (value: React.SetStateAction<Loadout[]>) => void
+  setLoadouts: (value: React.SetStateAction<Loadout[]>) => void;
+  updateLoadouts: () => void;
 }
 
 export interface Loadout {
@@ -19,7 +20,8 @@ export interface StratagemBinding {
 }
 
 export interface Binding {
-    key: any
+    id: number;
+    key: any;
 }
 
 export function defaultLoadoutContext(): LoadoutContextType {
@@ -40,9 +42,14 @@ export function defaultLoadoutContext(): LoadoutContextType {
     return ""
   }
 
+  const updateLoadouts = () => {
+      setLoadouts([...loadouts])
+  }
+
   return {
     addLoadout: addLoadout,
     setLoadouts: setLoadouts,
+    updateLoadouts: updateLoadouts,
     loadouts: loadouts,
   }
 }
