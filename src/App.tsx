@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { Badge, Carousel, Container, Form, Image } from "react-bootstrap";
-import hdLogo from "./assets/helldivers-2-seeklogo.svg"
+import { HashRouter, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
+import Layout from "./components/Layout";
+import Loadouts from "./pages/Loadouts";
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
@@ -14,9 +15,14 @@ function App() {
   }
 
   return (
-    <main className="container">
-    <h1>Welcome to <Badge bg="warning">Hellthrower</Badge></h1>
-    </main>
+    <HashRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/loadouts" element={<Loadouts />} />
+        </Route>
+      </Routes>
+    </HashRouter>
   );
 }
 
