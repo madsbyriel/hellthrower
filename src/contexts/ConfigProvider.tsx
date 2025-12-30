@@ -1,19 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
-import { createContext, ReactNode, useEffect, useState } from "react";
+import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useEffect, useMemo, useState } from "react";
+import { Config } from "../components/Types";
 
-export const ConfigContext = createContext<Config | null>(null);
+const ConfigContext = createContext<ConfigService | undefined>(undefined);
 
-export class Config {
-    name: string;
-
-    constructor() {
-        this.name = ""
-    }
+export interface ConfigService
+{
+  config: Config;
+  setConfig: Dispatch<SetStateAction<Config>>;
+  saveConfig: (config: Config) => Promise<void>
 }
 
 export default function ConfigProvider({ children }): ReactNode {
-    const [config, setConfig] = useState<Config | null>(null)
-    const [loading, setLoading] = useState<boolean>(false)
+    const [config, setConfig] = useState<Config>({ name: "", error: "", loadouts: [] })
 
     useEffect(() => {
       async function getConfig() {
@@ -22,9 +21,28 @@ export default function ConfigProvider({ children }): ReactNode {
       getConfig();
     }, []);
 
+    async function saveConfig(config: Config) {
+        let configString = JSON.stringify(config);
+        await invoke("save_config", { config: configString } )
+    }
+
+    const service: ConfigService = useMemo(() => ({
+        config,
+        setConfig: setConfig,
+        saveConfig: saveConfig,
+    }), [config])
+
     return (
-        <ConfigContext.Provider value={config}>
+        <ConfigContext.Provider value={service}>
           { children }
         </ConfigContext.Provider>
     );
+}
+
+export function useConfigProvider(): ConfigService {
+    const service = useContext(ConfigContext);
+    if (service == undefined)
+        throw "Config not loaded";
+
+    return service;
 }

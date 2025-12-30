@@ -4,12 +4,13 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // a builder for `FmtSubscriber`.
     let subscriber = FmtSubscriber::builder()
         // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
         // will be written to stdout.
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::INFO)
         // completes the builder.
         .finish();
 

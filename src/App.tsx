@@ -1,76 +1,78 @@
 import { HashRouter, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import Layout from "./components/Layout";
-import Loadouts from "./pages/Loadouts";
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { Config } from "./contexts/ConfigProvider";
+import { useConfigProvider } from "./contexts/ConfigProvider";
 import { Container } from "react-bootstrap";
 import NameForm from "./components/NameForm";
+import { useEffect, useState } from "react";
+import CreateLoadoutPage from "./pages/CreateLoadoutPage";
+import ViewLoadoutPage from "./pages/ViewLoadoutPage";
+import EditLoadoutPage from "./pages/EditLoadoutPage";
+import ActivateLoadoutPage from "./pages/ActivateLoadoutPage";
+import { Loadout } from "./components/Types";
+import ActivatedLoadoutPage from "./pages/ActivatedLoadoutPage";
+import { invoke } from "@tauri-apps/api/core";
 
 function App() {
-  const [configRaw, setRawConfig] = useState("");
+    const { config } = useConfigProvider();
 
-  useEffect(() => {
-      async function getConfig() {
-          setRawConfig(await invoke("get_config"))
-      }
-      getConfig()
-  }, [])
+    const hasError = config.error != undefined && config.error.trim().length != 0;
+    const hasName = config.name != undefined && config.name.trim().length != 0;
 
-  let canParseToConfig = false;
-  let config: Config;
-  try {
-    config = JSON.parse(configRaw);
-    canParseToConfig = true;
-  }
-  catch {}
+    const [activatedLoadout, setActivatedLoadout] = useState<Loadout | undefined>(undefined);
 
-  let canParseToError = false;
-  let error: ConfigError | null = null;
-  if (!canParseToConfig)
-  {
-    try {
-      error = JSON.parse(configRaw);
-      canParseToError = true;
+    useEffect(() => {
+        const preventNavigation = (e: any) => {
+            // Mouse button 3 = back, button 4 = forward
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+            }
+        };
+
+        window.addEventListener('mouseup', preventNavigation);
+
+        return () => {
+            window.removeEventListener('mouseup', preventNavigation);
+        };
+    }, []);
+
+    const onLoadoutActivated = async (index: number) => {
+        setActivatedLoadout(config.loadouts[index]);
+        console.log("starting listener");
+        await invoke("start_listening", { loadoutS: JSON.stringify(config.loadouts[index]) })
     }
-    catch {}
-  }
-
-  let isEmpty = false;
-  if (!canParseToError)
-  {
-    isEmpty = configRaw.trim().length == 0
-  }
-
-
-  return (
-    canParseToConfig ?
-      <HashRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/loadouts" element={<Loadouts />} />
-          </Route>
-        </Routes>
-      </HashRouter>
-    : canParseToError ?
-      <h1>{error?.error}</h1>
-    : isEmpty ?
-      <Container className="p-5">
-        <h1>Hello fellow Helldiver! What would you like to be called?</h1>
-        <NameForm />
-      </Container>
-    :
-      <h1>Unknown error state</h1>
-  );
-}
-
-class ConfigError {
-    error: string;
-    constructor() {
-        this.error = "";
+    const deactivateLoadout = async () => {
+        setActivatedLoadout(undefined);
+        await invoke("stop_listener");
     }
+
+    return <>
+        {activatedLoadout == undefined ? <>
+            {hasError ?
+                <h1>{config.error}</h1>
+            : <>
+                {!hasName ? <>
+                    <Container className="p-5">
+                        <NameForm />
+                    </Container>
+                </> : <>
+                    <HashRouter>
+                        <Routes>
+                            <Route element={<Layout />}>
+                                <Route path="/" element={<Home />} />
+                                <Route path="/create_loadout" element={<CreateLoadoutPage />} />
+                                <Route path="/view_loadout" element={<ViewLoadoutPage />} />
+                                <Route path="/edit_loadout" element={<EditLoadoutPage />} />
+                                <Route path="/activate_loadout" element={<ActivateLoadoutPage onActivate={onLoadoutActivated} />}/>
+                            </Route>
+                        </Routes>
+                    </HashRouter>
+                </>}
+            </>}
+        </> : <>
+            <ActivatedLoadoutPage loadout={activatedLoadout} onDeactivate={() => deactivateLoadout()} />
+        </>}
+    </>
 }
 
 export default App;

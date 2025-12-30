@@ -9,7 +9,8 @@ export default function BootstrapNavbar() {
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            <Nav.Link as={Link} to="/loadouts">Loadouts</Nav.Link>
+            <Nav.Link as={Link} to="/create_loadout">Create Loadout</Nav.Link>
+            <Nav.Link as={Link} to="/activate_loadout">Activate Loadout</Nav.Link>
           </Nav>
         </Navbar.Collapse>
       </Container>
