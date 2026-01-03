@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 use tracing::{error, info};
 
 static STOP_CHANNEL: LazyLock<Mutex<StopChannel>> = LazyLock::new(|| Mutex::new(StopChannel { chan: None }));
+static DELAY_MS: Duration = Duration::from_millis(15);
 
 struct StopChannel {
     chan: Option<tokio::sync::mpsc::Sender<u8>>
@@ -104,15 +105,40 @@ async fn start_listening(
                                     }
                                 }).collect();
 
+                                
+
+                                match keyboard.press(KeyCode::KEY_LEFTCTRL.code()).await
+                                {
+                                    Ok(_) => {},
+                                    Err(e) => {
+                                        error!("failed pressing tab: {:?}", e);
+                                        return;
+                                    }
+                                };
+
+                                tokio::time::sleep(DELAY_MS).await;
+
                                 for key in keys_to_execute {
-                                    match keyboard.tap_with_delay(key, Duration::from_millis(50)).await {
+                                    // Delay is only between press and release
+                                    match keyboard.tap_with_delay(key, DELAY_MS).await {
                                         Ok(_) => {},
                                         Err(e) => {
                                             error!("failed tapping: {:?}", e);
                                             break;
                                         },
                                     };
+                                    tokio::time::sleep(DELAY_MS).await;
                                 }
+
+                                match keyboard.release(KeyCode::KEY_LEFTCTRL.code()).await
+                                {
+                                    Ok(_) => {},
+                                    Err(e) => {
+                                        error!("failed releaseing tab: {:?}", e);
+                                        return;
+                                    }
+                                };
+
                                 info!("successfully called {name}!");
                             },
                             None => {

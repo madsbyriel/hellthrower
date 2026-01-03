@@ -11,7 +11,7 @@ export interface ConfigService
   saveConfig: (config: Config) => Promise<void>
 }
 
-export default function ConfigProvider({ children }): ReactNode {
+export default function ConfigProvider({ children }: any): ReactNode {
     const [config, setConfig] = useState<Config>({ name: "", error: "", loadouts: [] })
 
     useEffect(() => {

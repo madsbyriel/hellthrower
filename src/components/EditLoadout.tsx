@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useStratagemProvider } from "../contexts/StratagemProvider";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { KeyBinding, KeyResponse, Loadout, Stratagem, StratBinding } from "../components/Types";
-import { useConfigProvider } from "../contexts/ConfigProvider";
 
 export interface EditLoadoutProps {
     loadout: Loadout,
@@ -15,7 +14,6 @@ export interface EditLoadoutProps {
 
 export default function EditLoadout({ loadout, onLoadoutCreated, onLoadoutUpdated, readonly }: EditLoadoutProps) {
   const [error, setError] = useState("");
-  const { config } = useConfigProvider();
   const { stratagems } = useStratagemProvider();
 
   function addBinding() {
@@ -38,10 +36,8 @@ export default function EditLoadout({ loadout, onLoadoutCreated, onLoadoutUpdate
 
       if (loadout.bindings.length == 0) return "Good sir, it would seem there are no stratagems defined in this configuration of freedom?"
 
-      let unnamed_strat = new Stratagem();
       if (loadout.bindings.some(e => {
           let unnamed = e.stratagem.name.length == 0
-          if (unnamed) unnamed_strat = e.stratagem;
           return unnamed;
       })) return "Sire, a stratagem is left unspecified!"
 

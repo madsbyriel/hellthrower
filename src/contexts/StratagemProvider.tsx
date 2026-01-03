@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { Stratagem } from "../components/Types";
 
 const StratagemContext = createContext<StratagemService | undefined>(undefined);
@@ -9,7 +9,7 @@ export interface StratagemService
   stratagems: Stratagem[];
 }
 
-export default function StratagemProvider({ children }): ReactNode {
+export default function StratagemProvider({ children }: any): ReactNode {
     const [stratagems, setStratagems] = useState<Stratagem[]>([])
 
     useEffect(() => {
