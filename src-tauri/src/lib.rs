@@ -311,7 +311,7 @@ pub fn run() {
 
     let eventbroadcaster = match EventBroadcaster::start_listening(devices) {
         Ok(v) => v,
-        Err(e) => {
+        Err(_) => {
             error!("couldn't start event listener");
             return;
         },
