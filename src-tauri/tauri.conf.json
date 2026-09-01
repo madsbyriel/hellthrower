@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "hellthrower",
-        "width": 800,
-        "height": 600
+        "title": "HELLTHROWER",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 620
       }
     ],
     "security": {
