@@ -29,6 +29,7 @@ export function useComboRecording(onComplete: (combo: string[]) => void) {
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
   const unlistenRef = useRef<UnlistenFn[]>([]);
+  const disposedRef = useRef(false);
 
   const stopListening = () => {
     for (const fn of unlistenRef.current) fn();
@@ -43,25 +44,53 @@ export function useComboRecording(onComplete: (combo: string[]) => void) {
       setError(err instanceof Error ? err.message : String(err));
       return;
     }
+    if (disposedRef.current) {
+      // Unmounted while the backend call was in flight.
+      cancelComboRecording().catch(() => {
+        /* backend already idle */
+      });
+      return;
+    }
     stopListening();
     setDraft([]);
     setRecording(true);
-    unlistenRef.current = [
-      await listen<RecordUpdatePayload>("keyrs-record-update", (event) => {
-        setDraft(event.payload.pressed);
-      }),
-      await listen<RecordCompletePayload>("keyrs-record-complete", (event) => {
+
+    const fns: UnlistenFn[] = [];
+    const subscriptions: Array<[string, (event: unknown) => void]> = [
+      ["keyrs-record-update", (event: unknown) => {
+        setDraft((event as { payload: RecordUpdatePayload }).payload.pressed);
+      }],
+      ["keyrs-record-complete", (event: unknown) => {
         stopListening();
         setRecording(false);
         setDraft([]);
-        onCompleteRef.current(event.payload.combo);
-      }),
-      await listen<RecordErrorPayload>("keyrs-record-error", (event) => {
+        onCompleteRef.current(
+          (event as { payload: RecordCompletePayload }).payload.combo,
+        );
+      }],
+      ["keyrs-record-error", (event: unknown) => {
         stopListening();
         setRecording(false);
-        setError(event.payload.message);
-      }),
+        setError((event as { payload: RecordErrorPayload }).payload.message);
+      }],
     ];
+    for (const [event, handler] of subscriptions) {
+      try {
+        const fn = await listen(event, handler);
+        if (disposedRef.current) {
+          fn();
+          cancelComboRecording().catch(() => {
+            /* backend already idle */
+          });
+          return;
+        }
+        fns.push(fn);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        return;
+      }
+    }
+    unlistenRef.current = fns;
   };
 
   const cancel = () => {
@@ -74,15 +103,16 @@ export function useComboRecording(onComplete: (combo: string[]) => void) {
   };
 
   // Cancel the backend session if the component unmounts mid-recording.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    disposedRef.current = false;
+    return () => {
+      disposedRef.current = true;
       stopListening();
       cancelComboRecording().catch(() => {
         /* backend already idle */
       });
-    },
-    [],
-  );
+    };
+  }, []);
 
   return { recording, draft, error, start, cancel };
 }

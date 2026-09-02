@@ -22,6 +22,7 @@ pub use models::{
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use keyrs::{DefaultKeyboard, InputKeyEvent, Key};
 use tauri::{AppHandle, Emitter, State};
@@ -33,6 +34,11 @@ use combo::{ChordTracker, ComboRecorder, RecorderAction};
 /// Name keyrs gives its uinput device. Events from it must never trigger
 /// chords, or an emitted code would re-trigger itself forever.
 const VIRTUAL_DEVICE_NAME: &str = "keyrs virtual keyboard";
+
+/// Refractory window after a trigger: some devices (notably mice) report
+/// the same physical button through several event nodes, which looks like
+/// two independent presses arriving back to back.
+const TRIGGER_COOLDOWN: Duration = Duration::from_millis(250);
 
 /// Events emitted to the frontend.
 pub const EVENT_RECORD_UPDATE: &str = "keyrs-record-update";
@@ -280,6 +286,7 @@ async fn engine_loop(
 ) {
     let combos: Vec<Vec<Key>> = bindings.iter().map(|b| b.combo.clone()).collect();
     let mut tracker = ChordTracker::new();
+    let mut last_fire: Option<Instant> = None;
 
     loop {
         tokio::select! {
@@ -293,13 +300,21 @@ async fn engine_loop(
                     // Never trigger while the user is recording a combo.
                     let allowed = !recording_active.load(Ordering::SeqCst);
                     if let Some(index) = tracker.on_event(&event, &combos, allowed) {
+                        let now = Instant::now();
+                        let outside_cooldown = last_fire
+                            .map_or(true, |fired| now.duration_since(fired) >= TRIGGER_COOLDOWN);
+                        if !outside_cooldown {
+                            continue;
+                        }
+                        last_fire = Some(now);
                         let binding = &bindings[index];
-                        let _ = app.emit(EVENT_TRIGGER, TriggerEvent {
-                            stratagem: binding.name.clone(),
-                        });
-                        // Drop the trigger if the emitter is still busy
-                        // with a previous code — one throw at a time.
-                        let _ = emitter.try_send(binding.code.clone());
+                        // Only report a deployment when the code was actually
+                        // queued — one throw at a time, extras are dropped.
+                        if emitter.try_send(binding.code.clone()).is_ok() {
+                            let _ = app.emit(EVENT_TRIGGER, TriggerEvent {
+                                stratagem: binding.name.clone(),
+                            });
+                        }
                     }
                 }
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,

@@ -218,17 +218,26 @@ export default function App() {
 
   // ── engine feedback: toast when a chord fires ──
   useEffect(() => {
+    let disposed = false;
     let unlisten: UnlistenFn | undefined;
     listen<TriggerPayload>("autothrow-trigger", (event) => {
       pushToast(`DEPLOYING STRATAGEM: ${event.payload.stratagem}`);
     })
       .then((fn) => {
-        unlisten = fn;
+        // StrictMode dev: the effect may be cleaned up before listen()
+        // resolves — unregister the stale listener immediately so each
+        // trigger event is handled exactly once.
+        if (disposed) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
       })
       .catch(() => {
         /* not running inside Tauri — no engine events */
       });
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, [pushToast]);
