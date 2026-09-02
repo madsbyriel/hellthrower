@@ -1,23 +1,21 @@
-import type { CSSProperties } from "react";
-import type { Stratagem } from "../types";
+import type { ArrowDir } from "../types";
 import { ArrowGlyph } from "./ArrowGlyph";
 
 export function StratagemCode({
-  stratagem,
+  code,
   size = "md",
-  accent,
+  label,
 }: {
-  stratagem: Stratagem;
+  code: ArrowDir[];
   size?: "sm" | "md";
-  accent?: string;
+  label?: string;
 }) {
   return (
     <span
       className={`stratagem-code ${size}`}
-      aria-label={`Stratagem code for ${stratagem.name}`}
-      style={accent ? ({ "--code-accent": accent } as CSSProperties) : undefined}
+      aria-label={label ? `Stratagem code for ${label}` : "Stratagem code"}
     >
-      {stratagem.code.map((dir, i) => (
+      {code.map((dir, i) => (
         <span className="code-cell" key={i}>
           <ArrowGlyph dir={dir} size={size === "sm" ? 10 : 13} />
         </span>

@@ -106,7 +106,7 @@ export function LoadoutPanel({
           </button>
         </div>
       ) : (
-        <div className="bindings-grid">
+        <div className="bindings-list">
           {bindings.map((binding, i) => {
             const stratagem = stratagemFor(binding);
             if (!stratagem) return null;

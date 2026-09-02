@@ -12,7 +12,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-pub fn get_something() {
-    let client = stratbase_client::Client::new("https://stratbase.com/api/v1/test").unwrap();
-}
