@@ -45,6 +45,7 @@ pub const EVENT_RECORD_UPDATE: &str = "keyrs-record-update";
 pub const EVENT_RECORD_COMPLETE: &str = "keyrs-record-complete";
 pub const EVENT_RECORD_ERROR: &str = "keyrs-record-error";
 pub const EVENT_TRIGGER: &str = "autothrow-trigger";
+pub const EVENT_ERROR: &str = "autothrow-error";
 
 struct EngineHandle {
     cancel: CancellationToken,
@@ -68,6 +69,14 @@ pub struct KeyRuntime {
     /// True while a recording session is running — the engine suppresses
     /// triggers during recording so capture never fires a stratagem.
     recording_active: Arc<AtomicBool>,
+    /// True while the app window has OS focus. Chords never fire while
+    /// the app is focused — the user is interacting with the UI, not the
+    /// game.
+    app_focused: Arc<AtomicBool>,
+    /// True while the pointer is over the app window. Mouse-button chords
+    /// are suppressed then: a click over our own window never reaches the
+    /// game, so firing would only click our UI.
+    pointer_in_app: Arc<AtomicBool>,
 }
 
 impl Default for KeyRuntime {
@@ -78,12 +87,53 @@ impl Default for KeyRuntime {
             emitter: None,
             recording: None,
             recording_active: Arc::new(AtomicBool::new(false)),
+            // Conservative default: the app usually starts focused.
+            app_focused: Arc::new(AtomicBool::new(true)),
+            pointer_in_app: Arc::new(AtomicBool::new(false)),
         }
     }
 }
 
 /// The managed Tauri state type.
 pub type ManagedKeyState = std::sync::Mutex<KeyRuntime>;
+
+/// True for the mouse-button key variants.
+fn is_mouse_button(key: &Key) -> bool {
+    matches!(
+        key,
+        Key::MouseLeft
+            | Key::MouseRight
+            | Key::MouseMiddle
+            | Key::MouseSide
+            | Key::MouseExtra
+            | Key::MouseForward
+            | Key::MouseBack
+    )
+}
+
+/// Report whether the app window currently has OS focus. Kept in sync by
+/// the frontend; chords are ignored while the app is focused.
+#[tauri::command]
+pub fn set_app_focused(
+    state: State<'_, ManagedKeyState>,
+    focused: bool,
+) -> Result<(), String> {
+    let rt = state.lock().map_err(|_| "key state poisoned".to_string())?;
+    rt.app_focused.store(focused, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Report whether the pointer is currently over the app window. Kept in
+/// sync by the frontend; mouse-button chords are ignored while it is.
+#[tauri::command]
+pub fn set_pointer_in_app(
+    state: State<'_, ManagedKeyState>,
+    inside: bool,
+) -> Result<(), String> {
+    let rt = state.lock().map_err(|_| "key state poisoned".to_string())?;
+    rt.pointer_in_app.store(inside, Ordering::SeqCst);
+    Ok(())
+}
 
 /// Create the keyrs backend once, if it does not exist yet.
 async fn ensure_keyboard(
@@ -240,7 +290,7 @@ pub async fn activate_loadout(
     // Replace any existing engine before arming the new one.
     let cancel = CancellationToken::new();
     let (emitter_tx, emitter_rx) = mpsc::channel::<Vec<Key>>(2);
-    let recording_active = {
+    let (recording_active, app_focused, pointer_in_app) = {
         let mut rt = state.lock().map_err(|_| "key state poisoned".to_string())?;
         if let Some(engine) = rt.engine.take() {
             engine.cancel.cancel();
@@ -252,12 +302,21 @@ pub async fn activate_loadout(
             cancel: cancel.clone(),
         });
         rt.emitter = Some(emitter_tx.clone());
-        rt.recording_active.clone()
+        (
+            rt.recording_active.clone(),
+            rt.app_focused.clone(),
+            rt.pointer_in_app.clone(),
+        )
     };
 
-    tauri::async_runtime::spawn(emitter::run(keyboard, emitter_rx, cancel.clone()));
+    tauri::async_runtime::spawn(emitter::run(
+        app.clone(),
+        keyboard,
+        emitter_rx,
+        cancel.clone(),
+    ));
     tauri::async_runtime::spawn(engine_loop(
-        app, rx, bindings, emitter_tx, cancel, recording_active,
+        app, rx, bindings, emitter_tx, cancel, recording_active, app_focused, pointer_in_app,
     ));
     Ok(())
 }
@@ -283,8 +342,14 @@ async fn engine_loop(
     emitter: mpsc::Sender<Vec<Key>>,
     cancel: CancellationToken,
     recording_active: Arc<AtomicBool>,
+    app_focused: Arc<AtomicBool>,
+    pointer_in_app: Arc<AtomicBool>,
 ) {
     let combos: Vec<Vec<Key>> = bindings.iter().map(|b| b.combo.clone()).collect();
+    let has_mouse_button: Vec<bool> = combos
+        .iter()
+        .map(|combo| combo.iter().any(is_mouse_button))
+        .collect();
     let mut tracker = ChordTracker::new();
     let mut last_fire: Option<Instant> = None;
 
@@ -297,9 +362,19 @@ async fn engine_loop(
                     if is_virtual_device(&event) {
                         continue;
                     }
-                    // Never trigger while the user is recording a combo.
-                    let allowed = !recording_active.load(Ordering::SeqCst);
+                    // Never trigger while the user is recording a combo,
+                    // nor while the app window is focused — in both cases
+                    // the user is interacting with the UI, not the game.
+                    let allowed = !recording_active.load(Ordering::SeqCst)
+                        && !app_focused.load(Ordering::SeqCst);
                     if let Some(index) = tracker.on_event(&event, &combos, allowed) {
+                        // A mouse-button chord only makes sense when the
+                        // pointer is off our own window: a click over the
+                        // app never reaches the game, and would otherwise
+                        // fire UI buttons instead of stratagems.
+                        if has_mouse_button[index] && pointer_in_app.load(Ordering::SeqCst) {
+                            continue;
+                        }
                         let now = Instant::now();
                         let outside_cooldown = last_fire
                             .map_or(true, |fired| now.duration_since(fired) >= TRIGGER_COOLDOWN);

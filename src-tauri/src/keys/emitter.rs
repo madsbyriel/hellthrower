@@ -6,14 +6,19 @@
 //! change (each down and each up event).
 //!
 //! If deactivation cancels an emission mid-sequence, the menu key is
-//! still released — Ctrl is never left stuck down.
+//! still released — Ctrl is never left stuck down. Failed injections are
+//! reported to the frontend instead of failing silently.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use keyrs::{DefaultKeyboard, InputEventSender, Key, KeyState};
+use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+
+use super::models::RecordError;
+use super::EVENT_ERROR;
 
 /// Small delay between every key state change (each down and up event).
 const STEP_DELAY: Duration = Duration::from_millis(30);
@@ -28,16 +33,17 @@ const MENU_KEY: Key = Key::LeftCtrl;
 /// The keyboard is stored as an `Option` in the app runtime; it is only
 /// ever set once and never taken, so unwrapping here is safe.
 pub async fn run(
+    app: AppHandle,
     keyboard: Arc<tokio::sync::Mutex<Option<DefaultKeyboard>>>,
     mut rx: mpsc::Receiver<Vec<Key>>,
     cancel: CancellationToken,
 ) {
     while let Some(code) = rx.recv().await {
-        let menu_key_stuck = emit_code(&keyboard, &code, &cancel).await;
+        let menu_key_stuck = emit_code(&app, &keyboard, &code, &cancel).await;
         // Never leave the menu key pressed, even when cancellation cut
         // the sequence short.
         if menu_key_stuck {
-            send(&keyboard, MENU_KEY, KeyState::Up).await;
+            send(&app, &keyboard, MENU_KEY, KeyState::Up).await;
         }
     }
 }
@@ -48,11 +54,12 @@ pub async fn run(
 /// Returns true when the menu key may still be physically down
 /// (cancelled mid-sequence or a send failed), so the caller can release it.
 async fn emit_code(
+    app: &AppHandle,
     keyboard: &Arc<tokio::sync::Mutex<Option<DefaultKeyboard>>>,
     code: &[Key],
     cancel: &CancellationToken,
 ) -> bool {
-    if !send(keyboard, MENU_KEY, KeyState::Down).await {
+    if !send(app, keyboard, MENU_KEY, KeyState::Down).await {
         return false; // nothing was pressed — nothing to release
     }
     if wait_or_cancel(cancel, STEP_DELAY).await {
@@ -60,13 +67,13 @@ async fn emit_code(
     }
 
     for key in code {
-        if !send(keyboard, *key, KeyState::Down).await {
+        if !send(app, keyboard, *key, KeyState::Down).await {
             return true;
         }
         if wait_or_cancel(cancel, STEP_DELAY).await {
             return true;
         }
-        if !send(keyboard, *key, KeyState::Up).await {
+        if !send(app, keyboard, *key, KeyState::Up).await {
             return true;
         }
         if wait_or_cancel(cancel, STEP_DELAY).await {
@@ -75,19 +82,32 @@ async fn emit_code(
     }
 
     // Code finished — release the menu key.
-    send(keyboard, MENU_KEY, KeyState::Up).await;
+    send(app, keyboard, MENU_KEY, KeyState::Up).await;
     false
 }
 
-/// Inject one key state. Returns true on success.
+/// Inject one key state. Returns true on success; failures are reported
+/// to the frontend as `autothrow-error` events.
 async fn send(
+    app: &AppHandle,
     keyboard: &Arc<tokio::sync::Mutex<Option<DefaultKeyboard>>>,
     key: Key,
     state: KeyState,
 ) -> bool {
     let mut guard = keyboard.lock().await;
     let kb = guard.as_mut().expect("keyboard backend exists");
-    kb.send_event(key, state).await.is_ok()
+    match kb.send_event(key, state).await {
+        Ok(()) => true,
+        Err(error) => {
+            let _ = app.emit(
+                EVENT_ERROR,
+                RecordError {
+                    message: format!("failed to inject key {key} ({state}): {error}"),
+                },
+            );
+            false
+        }
+    }
 }
 
 /// Sleep for `duration`, aborting early when cancelled. Returns true when

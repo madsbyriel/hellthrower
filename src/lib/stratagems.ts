@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ArrowDir, Binding, Loadout, Stratagem } from "../types";
 import { uid } from "../types";
+import { fixLegacyKeyName } from "./keys";
 
 export const STRATAGEM_CACHE_KEY = "hellthrower.stratagems.v1";
 
@@ -148,14 +149,16 @@ const LEGACY_ARROW_KEYS: Record<string, string> = {
 function migrateCombo(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   if (value.every((entry) => typeof entry === "string")) {
-    return value.filter((entry): entry is string => entry.length > 0);
+    return value
+      .filter((entry): entry is string => entry.length > 0)
+      .map(fixLegacyKeyName);
   }
   return value.flatMap((token): string[] => {
     if (!token || typeof token !== "object") return [];
     const { kind, label } = token as { kind?: unknown; label?: unknown };
     if (typeof label !== "string") return [];
     if (kind === "mod") return LEGACY_MOD_KEYS[label] ? [LEGACY_MOD_KEYS[label]] : [];
-    if (kind === "key") return [LEGACY_ARROW_KEYS[label] ?? label];
+    if (kind === "key") return [fixLegacyKeyName(LEGACY_ARROW_KEYS[label] ?? label)];
     return [];
   });
 }

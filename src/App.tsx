@@ -16,6 +16,8 @@ import {
   errMsg,
   loadSettings,
   saveSettings,
+  setAppFocused,
+  setPointerInApp,
 } from "./lib/keys";
 import {
   fetchStratagemsFromClient,
@@ -242,6 +244,51 @@ export default function App() {
     };
   }, [pushToast]);
 
+  // ── engine feedback: surface emission failures ──
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: UnlistenFn | undefined;
+    listen<{ message: string }>("autothrow-error", (event) => {
+      pushToast(`AUTOTHROW ERROR: ${event.payload.message}`, "danger");
+    })
+      .then((fn) => {
+        if (disposed) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
+      })
+      .catch(() => {
+        /* not running inside Tauri — no engine events */
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [pushToast]);
+
+  // ── report window focus + pointer position to the engine ──
+  // Chords never fire while the app is focused (the user is in the UI,
+  // not in-game), and mouse-button chords never fire while the pointer is
+  // over this window (such a click never reaches the game).
+  useEffect(() => {
+    const onFocus = () => void setAppFocused(true);
+    const onBlur = () => void setAppFocused(false);
+    const onPointerEnter = () => void setPointerInApp(true);
+    const onPointerLeave = () => void setPointerInApp(false);
+    void setAppFocused(document.hasFocus());
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("mouseenter", onPointerEnter);
+    document.addEventListener("mouseleave", onPointerLeave);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("mouseenter", onPointerEnter);
+      document.removeEventListener("mouseleave", onPointerLeave);
+    };
+  }, []);
+
   const selectedLoadout = useMemo(
     () => loadouts.find((l) => l.id === selectedId) ?? null,
     [loadouts, selectedId],
@@ -307,6 +354,7 @@ export default function App() {
       // Never keep emitting after the armed loadout is gone.
       deactivateBackend().catch(() => {
         /* backend already idle */
+        pushToast("DELETE LOADOUT DEACTIVATE BACKEND", "danger");
       });
       setActiveId(null);
     }
@@ -343,6 +391,7 @@ export default function App() {
   const disarm = () => {
     deactivateBackend().catch(() => {
       /* backend already idle */
+      pushToast("DISARM DEACTIVATE BACKEND", "danger");
     });
     setActiveId(null);
     pushToast("AUTOTHROW DISARMED — SYSTEM ON STANDBY", "warn");

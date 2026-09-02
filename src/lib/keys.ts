@@ -17,6 +17,19 @@ export const DEFAULT_DIRECTION_KEYS: DirectionKeys = {
   right: "D",
 };
 
+/**
+ * keyrs 0.1.1 was missing the S key in its evdev mapping, so a physical S
+ * press was captured as the raw-code fallback `Other(0x1f)` (evdev KEY_S
+ * = 31). Heal stored data captured with that version.
+ */
+const LEGACY_KEY_FIXES: Record<string, string> = {
+  "Other(0x1f)": "S",
+};
+
+export function fixLegacyKeyName(name: string): string {
+  return LEGACY_KEY_FIXES[name] ?? name;
+}
+
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -25,10 +38,10 @@ export function loadSettings(): AppSettings {
       const directionKeys: Partial<DirectionKeys> = parsed.directionKeys ?? {};
       return {
         directionKeys: {
-          up: typeof directionKeys.up === "string" ? directionKeys.up : DEFAULT_DIRECTION_KEYS.up,
-          left: typeof directionKeys.left === "string" ? directionKeys.left : DEFAULT_DIRECTION_KEYS.left,
-          down: typeof directionKeys.down === "string" ? directionKeys.down : DEFAULT_DIRECTION_KEYS.down,
-          right: typeof directionKeys.right === "string" ? directionKeys.right : DEFAULT_DIRECTION_KEYS.right,
+          up: typeof directionKeys.up === "string" ? fixLegacyKeyName(directionKeys.up) : DEFAULT_DIRECTION_KEYS.up,
+          left: typeof directionKeys.left === "string" ? fixLegacyKeyName(directionKeys.left) : DEFAULT_DIRECTION_KEYS.left,
+          down: typeof directionKeys.down === "string" ? fixLegacyKeyName(directionKeys.down) : DEFAULT_DIRECTION_KEYS.down,
+          right: typeof directionKeys.right === "string" ? fixLegacyKeyName(directionKeys.right) : DEFAULT_DIRECTION_KEYS.right,
         },
       };
     }
@@ -93,6 +106,24 @@ export async function startComboRecording(): Promise<void> {
 
 export async function cancelComboRecording(): Promise<void> {
   await invoke("cancel_combo_recording");
+}
+
+/** Report whether the app window has OS focus (chords are ignored while it does). */
+export async function setAppFocused(focused: boolean): Promise<void> {
+  try {
+    await invoke("set_app_focused", { focused });
+  } catch {
+    /* not running inside Tauri */
+  }
+}
+
+/** Report whether the pointer is over the app window (mouse chords are ignored while it is). */
+export async function setPointerInApp(inside: boolean): Promise<void> {
+  try {
+    await invoke("set_pointer_in_app", { inside });
+  } catch {
+    /* not running inside Tauri */
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
