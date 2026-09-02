@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { STRATAGEM_BY_ID } from "../data/stratagems";
-import type { Binding, ComboToken } from "../types";
+import type { Binding, ComboToken, Stratagem } from "../types";
 import { KeyRecorder } from "./KeyRecorder";
 import { Modal } from "./Modal";
 import { StratagemPicker } from "./StratagemPicker";
@@ -13,11 +12,13 @@ export interface BindingDraft {
 export function BindingEditor({
   initial,
   otherBindings,
+  stratagems,
   onSave,
   onClose,
 }: {
   initial: BindingDraft;
   otherBindings: Binding[];
+  stratagems: Stratagem[];
   onSave: (draft: BindingDraft) => void;
   onClose: () => void;
 }) {
@@ -33,7 +34,9 @@ export function BindingEditor({
     [otherBindings],
   );
 
-  const selected = stratagemId ? STRATAGEM_BY_ID.get(stratagemId) : undefined;
+  const selected = stratagemId
+    ? stratagems.find((s) => s.id === stratagemId)
+    : undefined;
   const valid = combo.length > 0 && stratagemId !== null;
 
   return (
@@ -72,7 +75,11 @@ export function BindingEditor({
         </div>
         <div className="binding-editor-picker">
           <span className="picker-section-label">1 — CHOOSE ORDNANCE</span>
-          <StratagemPicker selectedId={stratagemId} onSelect={setStratagemId} />
+          <StratagemPicker
+            stratagems={stratagems}
+            selectedId={stratagemId}
+            onSelect={setStratagemId}
+          />
         </div>
       </div>
     </Modal>

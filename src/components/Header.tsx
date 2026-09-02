@@ -6,10 +6,12 @@ import { IconPower } from "./icons";
 export function Header({
   inputs,
   activeLoadout,
+  offline,
   onDisarm,
 }: {
   inputs: ArrowDir[];
   activeLoadout: Loadout | null;
+  offline: boolean;
   onDisarm: () => void;
 }) {
   const armed = activeLoadout !== null;
@@ -28,6 +30,16 @@ export function Header({
       </div>
 
       <div className="header-spacer" />
+
+      {offline && (
+        <div
+          className="link-chip"
+          title="Stratbase unreachable — using the cached stratagem database"
+        >
+          <span className="link-dot" aria-hidden="true" />
+          STRATBASE OFFLINE — CACHED DATA
+        </div>
+      )}
 
       <div className="input-monitor" aria-label="Input monitor">
         <span className="monitor-label">INPUT</span>

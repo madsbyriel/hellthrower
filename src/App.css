@@ -1812,3 +1812,179 @@ button {
     position: static;
   }
 }
+
+/* ── Stratbase link chip (header) ───────────────────────────────────── */
+
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: var(--orange);
+  border: 1px solid rgba(255, 122, 61, 0.5);
+  background: rgba(255, 122, 61, 0.08);
+  padding: 6px 10px;
+  white-space: nowrap;
+  clip-path: polygon(
+    8px 0,
+    100% 0,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    0 100%,
+    0 8px
+  );
+}
+
+.link-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  background: var(--orange);
+  box-shadow: 0 0 8px rgba(255, 122, 61, 0.7);
+  animation: blink 1.1s steps(1) infinite;
+}
+
+/* ── Boot / locked-out screens ──────────────────────────────────────── */
+
+.boot-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 24px;
+  min-height: 0;
+}
+
+.boot-emblem {
+  color: var(--yellow);
+  filter: drop-shadow(0 0 14px rgba(255, 217, 46, 0.35));
+  animation: bootPulse 1.6s ease-in-out infinite;
+}
+
+.boot-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--text);
+}
+
+.boot-title.danger {
+  color: var(--red);
+}
+
+.boot-sub {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  font-weight: 600;
+  max-width: 540px;
+  line-height: 1.6;
+}
+
+.boot-bar {
+  position: relative;
+  width: min(420px, 70vw);
+  height: 8px;
+  border: 1px solid var(--line-strong);
+  background: #0b0e10;
+  overflow: hidden;
+}
+
+.boot-bar-scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+  animation: bootScan 1.4s linear infinite;
+}
+
+.boot-error-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(255, 75, 62, 0.45);
+  background: var(--panel);
+  padding: 36px 44px;
+  max-width: 580px;
+  clip-path: polygon(
+    18px 0,
+    100% 0,
+    100% calc(100% - 18px),
+    calc(100% - 18px) 100%,
+    0 100%,
+    0 18px
+  );
+}
+
+.boot-error-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--red) 0 12px,
+    #0d1012 12px 24px
+  );
+  opacity: 0.8;
+}
+
+.boot-error-icon {
+  color: var(--red);
+  filter: drop-shadow(0 0 10px rgba(255, 75, 62, 0.4));
+}
+
+.boot-error-detail {
+  margin: 0;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+  background: #0b0e10;
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.boot-hint {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+@keyframes bootPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes bootScan {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}

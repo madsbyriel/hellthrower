@@ -34,6 +34,9 @@ export interface Toast {
   kind: ToastKind;
 }
 
+/** Stratagem database sync state: syncing, fresh, cached, or unreachable. */
+export type SyncStatus = "loading" | "online" | "offline" | "error";
+
 export function comboToString(combo: ComboToken[]): string {
   return combo.map((t) => t.label).join("+");
 }

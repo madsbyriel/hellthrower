@@ -1,16 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BindingEditor, type BindingDraft } from "./components/BindingEditor";
+import { BootScreen } from "./components/BootScreen";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Header } from "./components/Header";
 import { LoadoutEditor, type LoadoutDraft } from "./components/LoadoutEditor";
 import { EmptyPanel, LoadoutPanel } from "./components/LoadoutPanel";
 import { Sidebar } from "./components/Sidebar";
 import { Toasts } from "./components/Toasts";
-import { STRATAGEM_BY_ID } from "./data/stratagems";
+import {
+  fetchStratagemsFromClient,
+  loadStratagemCache,
+  remapLoadoutBindings,
+  saveStratagemCache,
+  seedLoadouts,
+} from "./lib/stratagems";
 import type {
   ArrowDir,
   Binding,
   Loadout,
+  Stratagem,
+  SyncStatus,
   Toast,
   ToastKind,
 } from "./types";
@@ -19,45 +28,6 @@ import "./App.css";
 
 const STORAGE_LOADOUTS = "hellthrower.loadouts.v1";
 const STORAGE_ACTIVE = "hellthrower.active.v1";
-
-// ── Demo seed data ────────────────────────────────────────────────────
-
-function seedLoadouts(): Loadout[] {
-  const now = Date.now();
-  return [
-    {
-      id: uid(),
-      name: "AUTOMATON FRONTLINE",
-      description:
-        "Heavy ordnance for bot fronts. Railcannon on standby, 500kg for the factory striders.",
-      createdAt: now - 1000 * 60 * 60 * 26,
-      updatedAt: now - 1000 * 60 * 12,
-      bindings: [
-        { id: uid(), stratagemId: "reinforce", combo: [{ kind: "key", label: "F1" }] },
-        { id: uid(), stratagemId: "resupply", combo: [{ kind: "key", label: "F2" }] },
-        { id: uid(), stratagemId: "eagle-airstrike", combo: [{ kind: "mod", label: "Ctrl" }, { kind: "key", label: "1" }] },
-        { id: uid(), stratagemId: "orbital-railcannon", combo: [{ kind: "mod", label: "Ctrl" }, { kind: "key", label: "2" }] },
-        { id: uid(), stratagemId: "eagle-500kg", combo: [{ kind: "mod", label: "Ctrl" }, { kind: "key", label: "3" }] },
-        { id: uid(), stratagemId: "orbital-laser", combo: [{ kind: "mod", label: "Alt" }, { kind: "key", label: "L" }] },
-      ],
-    },
-    {
-      id: uid(),
-      name: "TERMINID SWARM",
-      description:
-        "Area denial for bug breaches. Fire, gas and more fire. Bring a shovel.",
-      createdAt: now - 1000 * 60 * 60 * 3,
-      updatedAt: now - 1000 * 60 * 60 * 2,
-      bindings: [
-        { id: uid(), stratagemId: "reinforce", combo: [{ kind: "key", label: "F1" }] },
-        { id: uid(), stratagemId: "resupply", combo: [{ kind: "key", label: "F2" }] },
-        { id: uid(), stratagemId: "eagle-napalm", combo: [{ kind: "mod", label: "Ctrl" }, { kind: "key", label: "1" }] },
-        { id: uid(), stratagemId: "orbital-gatling", combo: [{ kind: "mod", label: "Ctrl" }, { kind: "key", label: "2" }] },
-        { id: uid(), stratagemId: "orbital-gas", combo: [{ kind: "mod", label: "Ctrl" }, { kind: "key", label: "3" }] },
-      ],
-    },
-  ];
-}
 
 function loadStored<T>(key: string, fallback: () => T): T {
   try {
@@ -78,30 +48,100 @@ type ModalState =
   | { kind: "deleteBinding"; loadoutId: string; bindingId: string }
   | null;
 
+function FxLayers() {
+  return (
+    <>
+      <div className="fx fx-grid" aria-hidden="true" />
+      <div className="fx fx-scanlines" aria-hidden="true" />
+      <div className="fx fx-vignette" aria-hidden="true" />
+    </>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [stratagems, setStratagems] = useState<Stratagem[] | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [appReady, setAppReady] = useState(false);
+
   const [loadouts, setLoadouts] = useState<Loadout[]>(() =>
-    loadStored(STORAGE_LOADOUTS, seedLoadouts),
+    loadStored<Loadout[]>(STORAGE_LOADOUTS, () => []),
   );
   const [activeId, setActiveId] = useState<string | null>(() =>
     loadStored<string | null>(STORAGE_ACTIVE, () => null),
   );
-  const [selectedId, setSelectedId] = useState<string | null>(
-    () => loadouts[0]?.id ?? null,
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [inputs, setInputs] = useState<ArrowDir[]>([]);
 
-  // ── mock persistence ──
+  const bootingRef = useRef(false);
+
+  const pushToast = useCallback((message: string, kind: ToastKind = "ok") => {
+    const id = uid();
+    setToasts((prev) => [...prev.slice(-3), { id, message, kind }]);
+    window.setTimeout(
+      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+      3400,
+    );
+  }, []);
+
+  // ── stratagem sync boot sequence ──
+  const finishBoot = useCallback((list: Stratagem[]) => {
+    if (localStorage.getItem(STORAGE_LOADOUTS) !== null) {
+      // Existing loadouts: re-point stale stratagem ids to the fresh list.
+      setLoadouts((prev) => remapLoadoutBindings(prev, list));
+    } else {
+      // First launch: seed demo loadouts against whatever the API returned.
+      setLoadouts(seedLoadouts(list));
+    }
+    setStratagems(list);
+    setAppReady(true);
+  }, []);
+
+  const boot = useCallback(async () => {
+    if (bootingRef.current) return;
+    bootingRef.current = true;
+    setSyncStatus("loading");
+    setSyncError(null);
+    try {
+      const fresh = await fetchStratagemsFromClient();
+      saveStratagemCache(fresh);
+      finishBoot(fresh);
+      setSyncStatus("online");
+    } catch (err) {
+      const cached = loadStratagemCache();
+      if (cached) {
+        finishBoot(cached.stratagems);
+        setSyncStatus("offline");
+        pushToast(
+          "STRATBASE UNREACHABLE — USING CACHED STRATAGEM DATABASE",
+          "warn",
+        );
+      } else {
+        setSyncStatus("error");
+        setSyncError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      bootingRef.current = false;
+    }
+  }, [finishBoot, pushToast]);
+
   useEffect(() => {
+    boot();
+  }, [boot]);
+
+  // ── mock persistence (write only after boot to avoid clobbering seeds) ──
+  useEffect(() => {
+    if (!appReady) return;
     try {
       localStorage.setItem(STORAGE_LOADOUTS, JSON.stringify(loadouts));
     } catch {
       /* storage unavailable — in-memory only */
     }
-  }, [loadouts]);
+  }, [loadouts, appReady]);
 
   useEffect(() => {
     try {
@@ -111,6 +151,13 @@ export default function App() {
       /* storage unavailable */
     }
   }, [activeId]);
+
+  // Keep a valid selection when loadouts change (seed, delete, …).
+  useEffect(() => {
+    if (loadouts.length > 0 && !loadouts.some((l) => l.id === selectedId)) {
+      setSelectedId(loadouts[0].id);
+    }
+  }, [loadouts, selectedId]);
 
   // ── cosmetic input monitor (arrow keys / WASD only) ──
   useEffect(() => {
@@ -139,15 +186,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const pushToast = useCallback((message: string, kind: ToastKind = "ok") => {
-    const id = uid();
-    setToasts((prev) => [...prev.slice(-3), { id, message, kind }]);
-    window.setTimeout(
-      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
-      3400,
-    );
-  }, []);
-
   const selectedLoadout = useMemo(
     () => loadouts.find((l) => l.id === selectedId) ?? null,
     [loadouts, selectedId],
@@ -157,9 +195,13 @@ export default function App() {
     [loadouts, activeId],
   );
 
+  const stratagemById = useMemo(
+    () => new Map((stratagems ?? []).map((s) => [s.id, s])),
+    [stratagems],
+  );
   const stratagemFor = useCallback(
-    (binding: Binding) => STRATAGEM_BY_ID.get(binding.stratagemId),
-    [],
+    (binding: Binding) => stratagemById.get(binding.stratagemId),
+    [stratagemById],
   );
 
   // ── loadout CRUD ──
@@ -267,10 +309,34 @@ export default function App() {
     pushToast("BINDING REMOVED", "warn");
   };
 
-  // ── render ──
+  // ── boot / locked-out screens ──
+  if (syncStatus === "loading") {
+    return (
+      <div className="app">
+        <BootScreen status="loading" onRetry={boot} />
+        <FxLayers />
+      </div>
+    );
+  }
+
+  if (syncStatus === "error" || stratagems === null) {
+    return (
+      <div className="app">
+        <BootScreen status="error" message={syncError} onRetry={boot} />
+        <FxLayers />
+      </div>
+    );
+  }
+
+  // ── main UI ──
   return (
     <div className="app">
-      <Header inputs={inputs} activeLoadout={activeLoadout} onDisarm={disarm} />
+      <Header
+        inputs={inputs}
+        activeLoadout={activeLoadout}
+        offline={syncStatus === "offline"}
+        onDisarm={disarm}
+      />
 
       <div className="shell">
         <Sidebar
@@ -364,6 +430,7 @@ export default function App() {
               otherBindings={loadout.bindings.filter(
                 (b) => b.id !== modal.bindingId,
               )}
+              stratagems={stratagems}
               onSave={saveBinding}
               onClose={() => setModal(null)}
             />
@@ -392,7 +459,7 @@ export default function App() {
             (b) => b.id === modal.bindingId,
           );
           const stratagem = binding
-            ? STRATAGEM_BY_ID.get(binding.stratagemId)
+            ? stratagemById.get(binding.stratagemId)
             : undefined;
           return (
             <ConfirmDialog
@@ -407,10 +474,7 @@ export default function App() {
 
       <Toasts toasts={toasts} />
 
-      {/* ambient effects */}
-      <div className="fx fx-grid" aria-hidden="true" />
-      <div className="fx fx-scanlines" aria-hidden="true" />
-      <div className="fx fx-vignette" aria-hidden="true" />
+      <FxLayers />
     </div>
   );
 }

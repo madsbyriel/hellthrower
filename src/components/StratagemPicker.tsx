@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { STRATAGEMS } from "../data/stratagems";
+import type { Stratagem } from "../types";
 import { IconSearch } from "./icons";
 import { StratagemCode } from "./StratagemCode";
 
 export function StratagemPicker({
+  stratagems,
   selectedId,
   onSelect,
 }: {
+  stratagems: Stratagem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -14,9 +16,9 @@ export function StratagemPicker({
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return STRATAGEMS;
-    return STRATAGEMS.filter((s) => s.name.toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return stratagems;
+    return stratagems.filter((s) => s.name.toLowerCase().includes(q));
+  }, [stratagems, query]);
 
   return (
     <div className="stratagem-picker">
