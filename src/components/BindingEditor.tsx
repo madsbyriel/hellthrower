@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import type { Binding, ComboToken, Stratagem } from "../types";
+import type { Binding, Stratagem } from "../types";
 import { KeyRecorder } from "./KeyRecorder";
 import { Modal } from "./Modal";
 import { StratagemPicker } from "./StratagemPicker";
 
 export interface BindingDraft {
-  combo: ComboToken[];
+  combo: string[];
   stratagemId: string | null;
 }
 
@@ -22,12 +22,12 @@ export function BindingEditor({
   onSave: (draft: BindingDraft) => void;
   onClose: () => void;
 }) {
-  const [combo, setCombo] = useState<ComboToken[]>(initial.combo);
+  const [combo, setCombo] = useState<string[]>(initial.combo);
   const [stratagemId, setStratagemId] = useState<string | null>(
     initial.stratagemId,
   );
 
-  const handleCombo = useCallback((next: ComboToken[]) => setCombo(next), []);
+  const handleCombo = useCallback((next: string[]) => setCombo(next), []);
 
   const conflicts = useMemo(
     () => otherBindings.map((b) => b.combo),

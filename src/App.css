@@ -1988,3 +1988,68 @@ button {
     left: 100%;
   }
 }
+
+/* ── Settings modal (input mapping) ─────────────────────────────────── */
+
+.settings-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 10px 14px;
+  clip-path: polygon(
+    8px 0,
+    100% 0,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    0 100%,
+    0 8px
+  );
+}
+
+.settings-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 96px;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--yellow);
+}
+
+.settings-row > .btn {
+  margin-left: auto;
+}
+
+.settings-error {
+  margin: 10px 0 0;
+  color: var(--red);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.settings-hint {
+  margin: 12px 0 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+  font-weight: 600;
+}

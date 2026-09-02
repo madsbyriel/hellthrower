@@ -1522,6 +1522,8 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -2017,9 +2019,9 @@ dependencies = [
 
 [[package]]
 name = "keyrs"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35d34e52832c428a7f47e4fa625c356dc1fa7fb935082b982ee757a07009a70a"
+checksum = "75e207aade187eaab34f1e95138a62bad84e520c9454c2ff24caaec36bfb074b"
 dependencies = [
  "async-trait",
  "evdev",

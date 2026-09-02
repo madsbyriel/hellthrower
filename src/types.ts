@@ -6,15 +6,11 @@ export interface Stratagem {
   code: ArrowDir[];
 }
 
-/** One key of an activation combo. Mods are Ctrl/Alt/Shift, key is the trigger. */
-export type ComboToken =
-  | { kind: "mod"; label: "Ctrl" | "Alt" | "Shift" }
-  | { kind: "key"; label: string };
-
 export interface Binding {
   id: string;
   stratagemId: string;
-  combo: ComboToken[];
+  /** Trigger combination — any set of keyrs key names (e.g. ["LeftCtrl", "F1"]). */
+  combo: string[];
 }
 
 export interface Loadout {
@@ -24,6 +20,18 @@ export interface Loadout {
   bindings: Binding[];
   createdAt: number;
   updatedAt: number;
+}
+
+/** Which physical keys are pressed to emit each code direction in-game. */
+export interface DirectionKeys {
+  up: string;
+  left: string;
+  down: string;
+  right: string;
+}
+
+export interface AppSettings {
+  directionKeys: DirectionKeys;
 }
 
 export type ToastKind = "ok" | "warn" | "danger";
@@ -37,8 +45,8 @@ export interface Toast {
 /** Stratagem database sync state: syncing, fresh, cached, or unreachable. */
 export type SyncStatus = "loading" | "online" | "offline" | "error";
 
-export function comboToString(combo: ComboToken[]): string {
-  return combo.map((t) => t.label).join("+");
+export function comboToString(combo: string[]): string {
+  return combo.join("+");
 }
 
 export function uid(): string {

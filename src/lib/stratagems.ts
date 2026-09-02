@@ -1,11 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type {
-  ArrowDir,
-  Binding,
-  ComboToken,
-  Loadout,
-  Stratagem,
-} from "../types";
+import type { ArrowDir, Binding, Loadout, Stratagem } from "../types";
 import { uid } from "../types";
 
 export const STRATAGEM_CACHE_KEY = "hellthrower.stratagems.v1";
@@ -130,6 +124,75 @@ export function remapLoadoutBindings(
   return changed ? remapped : loadouts;
 }
 
+// ── Stored-loadout revival (incl. legacy combo migration) ────────────────
+
+const LEGACY_MOD_KEYS: Record<string, string> = {
+  Ctrl: "LeftCtrl",
+  Alt: "LeftAlt",
+  Shift: "LeftShift",
+  Meta: "LeftMeta",
+};
+
+const LEGACY_ARROW_KEYS: Record<string, string> = {
+  "↑": "Up",
+  "↓": "Down",
+  "←": "Left",
+  "→": "Right",
+};
+
+/**
+ * Convert a stored combo into the current `string[]` format. Accepts both
+ * modern combos (already string arrays) and the legacy
+ * `{ kind: "mod" | "key", label }` token format.
+ */
+function migrateCombo(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  if (value.every((entry) => typeof entry === "string")) {
+    return value.filter((entry): entry is string => entry.length > 0);
+  }
+  return value.flatMap((token): string[] => {
+    if (!token || typeof token !== "object") return [];
+    const { kind, label } = token as { kind?: unknown; label?: unknown };
+    if (typeof label !== "string") return [];
+    if (kind === "mod") return LEGACY_MOD_KEYS[label] ? [LEGACY_MOD_KEYS[label]] : [];
+    if (kind === "key") return [LEGACY_ARROW_KEYS[label] ?? label];
+    return [];
+  });
+}
+
+/** Validate and revive raw localStorage data into `Loadout[]`. */
+export function reviveLoadouts(parsed: unknown): Loadout[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed.flatMap((item): Loadout[] => {
+    if (!item || typeof item !== "object") return [];
+    const loadout = item as Partial<Loadout>;
+    if (typeof loadout.id !== "string" || typeof loadout.name !== "string") {
+      return [];
+    }
+    const rawBindings = Array.isArray(loadout.bindings) ? loadout.bindings : [];
+    const bindings = rawBindings.flatMap((raw): Binding[] => {
+      if (!raw || typeof raw !== "object") return [];
+      const binding = raw as Partial<Binding>;
+      if (typeof binding.id !== "string" || typeof binding.stratagemId !== "string") {
+        return [];
+      }
+      const combo = migrateCombo(binding.combo);
+      if (combo.length === 0) return [];
+      return [{ id: binding.id, stratagemId: binding.stratagemId, combo }];
+    });
+    return [
+      {
+        id: loadout.id,
+        name: loadout.name,
+        description: typeof loadout.description === "string" ? loadout.description : "",
+        bindings,
+        createdAt: typeof loadout.createdAt === "number" ? loadout.createdAt : Date.now(),
+        updatedAt: typeof loadout.updatedAt === "number" ? loadout.updatedAt : Date.now(),
+      },
+    ];
+  });
+}
+
 // ── Demo seed loadouts (first launch only) ──────────────────────────────
 
 function findByName(
@@ -143,7 +206,7 @@ function findByName(
 function bind(
   stratagems: Stratagem[],
   name: string,
-  combo: ComboToken[],
+  combo: string[],
 ): Binding | null {
   const stratagem = findByName(stratagems, name);
   return stratagem ? { id: uid(), stratagemId: stratagem.id, combo } : null;
@@ -160,24 +223,12 @@ export function seedLoadouts(stratagems: Stratagem[]): Loadout[] {
       createdAt: now - 1000 * 60 * 60 * 26,
       updatedAt: now - 1000 * 60 * 12,
       bindings: [
-        bind(stratagems, "Reinforce", [{ kind: "key", label: "F1" }]),
-        bind(stratagems, "Resupply", [{ kind: "key", label: "F2" }]),
-        bind(stratagems, "Eagle Airstrike", [
-          { kind: "mod", label: "Ctrl" },
-          { kind: "key", label: "1" },
-        ]),
-        bind(stratagems, "Orbital Railcannon Strike", [
-          { kind: "mod", label: "Ctrl" },
-          { kind: "key", label: "2" },
-        ]),
-        bind(stratagems, "Eagle 500KG Bomb", [
-          { kind: "mod", label: "Ctrl" },
-          { kind: "key", label: "3" },
-        ]),
-        bind(stratagems, "Orbital Laser", [
-          { kind: "mod", label: "Alt" },
-          { kind: "key", label: "L" },
-        ]),
+        bind(stratagems, "Reinforce", ["F1"]),
+        bind(stratagems, "Resupply", ["F2"]),
+        bind(stratagems, "Eagle Airstrike", ["LeftCtrl", "Digit1"]),
+        bind(stratagems, "Orbital Railcannon Strike", ["LeftCtrl", "Digit2"]),
+        bind(stratagems, "Eagle 500KG Bomb", ["LeftCtrl", "Digit3"]),
+        bind(stratagems, "Orbital Laser", ["LeftAlt", "L"]),
       ].filter((b): b is Binding => b !== null),
     },
     {
@@ -188,20 +239,11 @@ export function seedLoadouts(stratagems: Stratagem[]): Loadout[] {
       createdAt: now - 1000 * 60 * 60 * 3,
       updatedAt: now - 1000 * 60 * 60 * 2,
       bindings: [
-        bind(stratagems, "Reinforce", [{ kind: "key", label: "F1" }]),
-        bind(stratagems, "Resupply", [{ kind: "key", label: "F2" }]),
-        bind(stratagems, "Eagle Napalm Airstrike", [
-          { kind: "mod", label: "Ctrl" },
-          { kind: "key", label: "1" },
-        ]),
-        bind(stratagems, "Orbital Gatling Barrage", [
-          { kind: "mod", label: "Ctrl" },
-          { kind: "key", label: "2" },
-        ]),
-        bind(stratagems, "Orbital Gas Strike", [
-          { kind: "mod", label: "Ctrl" },
-          { kind: "key", label: "3" },
-        ]),
+        bind(stratagems, "Reinforce", ["F1"]),
+        bind(stratagems, "Resupply", ["F2"]),
+        bind(stratagems, "Eagle Napalm Airstrike", ["LeftCtrl", "Digit1"]),
+        bind(stratagems, "Orbital Gatling Barrage", ["LeftCtrl", "Digit2"]),
+        bind(stratagems, "Orbital Gas Strike", ["LeftCtrl", "Digit3"]),
       ].filter((b): b is Binding => b !== null),
     },
   ];

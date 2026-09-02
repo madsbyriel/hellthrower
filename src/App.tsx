@@ -1,20 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { BindingEditor, type BindingDraft } from "./components/BindingEditor";
 import { BootScreen } from "./components/BootScreen";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Header } from "./components/Header";
 import { LoadoutEditor, type LoadoutDraft } from "./components/LoadoutEditor";
 import { EmptyPanel, LoadoutPanel } from "./components/LoadoutPanel";
+import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toasts } from "./components/Toasts";
+import {
+  activateBackend,
+  buildActivationConfig,
+  deactivateBackend,
+  errMsg,
+  loadSettings,
+  saveSettings,
+} from "./lib/keys";
 import {
   fetchStratagemsFromClient,
   loadStratagemCache,
   remapLoadoutBindings,
+  reviveLoadouts,
   saveStratagemCache,
   seedLoadouts,
 } from "./lib/stratagems";
 import type {
+  AppSettings,
   ArrowDir,
   Binding,
   Loadout,
@@ -39,6 +51,16 @@ function loadStored<T>(key: string, fallback: () => T): T {
   return fallback();
 }
 
+function loadLoadouts(): Loadout[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_LOADOUTS);
+    if (raw) return reviveLoadouts(JSON.parse(raw));
+  } catch {
+    /* corrupted storage — start empty */
+  }
+  return [];
+}
+
 // ── Modals ────────────────────────────────────────────────────────────
 
 type ModalState =
@@ -46,6 +68,7 @@ type ModalState =
   | { kind: "binding"; loadoutId: string; bindingId: string | null }
   | { kind: "deleteLoadout"; loadoutId: string }
   | { kind: "deleteBinding"; loadoutId: string; bindingId: string }
+  | { kind: "settings" }
   | null;
 
 function FxLayers() {
@@ -58,6 +81,10 @@ function FxLayers() {
   );
 }
 
+interface TriggerPayload {
+  stratagem: string;
+}
+
 // ── App ───────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -66,9 +93,8 @@ export default function App() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [appReady, setAppReady] = useState(false);
 
-  const [loadouts, setLoadouts] = useState<Loadout[]>(() =>
-    loadStored<Loadout[]>(STORAGE_LOADOUTS, () => []),
-  );
+  const [loadouts, setLoadouts] = useState<Loadout[]>(loadLoadouts);
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [activeId, setActiveId] = useState<string | null>(() =>
     loadStored<string | null>(STORAGE_ACTIVE, () => null),
   );
@@ -152,6 +178,10 @@ export default function App() {
     }
   }, [activeId]);
 
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
+
   // Keep a valid selection when loadouts change (seed, delete, …).
   useEffect(() => {
     if (loadouts.length > 0 && !loadouts.some((l) => l.id === selectedId)) {
@@ -186,6 +216,23 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // ── engine feedback: toast when a chord fires ──
+  useEffect(() => {
+    let unlisten: UnlistenFn | undefined;
+    listen<TriggerPayload>("autothrow-trigger", (event) => {
+      pushToast(`DEPLOYING STRATAGEM: ${event.payload.stratagem}`);
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {
+        /* not running inside Tauri — no engine events */
+      });
+    return () => {
+      unlisten?.();
+    };
+  }, [pushToast]);
+
   const selectedLoadout = useMemo(
     () => loadouts.find((l) => l.id === selectedId) ?? null,
     [loadouts, selectedId],
@@ -202,6 +249,17 @@ export default function App() {
   const stratagemFor = useCallback(
     (binding: Binding) => stratagemById.get(binding.stratagemId),
     [stratagemById],
+  );
+
+  // ── engine arming helpers ──
+  const rearm = useCallback(
+    (loadout: Loadout, directionKeys: AppSettings["directionKeys"]) => {
+      const config = buildActivationConfig(loadout, stratagemById, directionKeys);
+      activateBackend(config).catch((err) => {
+        pushToast(`RE-ARM FAILED: ${errMsg(err)}`, "danger");
+      });
+    },
+    [stratagemById, pushToast],
   );
 
   // ── loadout CRUD ──
@@ -236,24 +294,57 @@ export default function App() {
   const deleteLoadout = () => {
     if (modal?.kind !== "deleteLoadout") return;
     const { loadoutId } = modal;
+    if (activeId === loadoutId) {
+      // Never keep emitting after the armed loadout is gone.
+      deactivateBackend().catch(() => {
+        /* backend already idle */
+      });
+      setActiveId(null);
+    }
     const remaining = loadouts.filter((l) => l.id !== loadoutId);
     setLoadouts(remaining);
     if (selectedId === loadoutId) setSelectedId(remaining[0]?.id ?? null);
-    if (activeId === loadoutId) setActiveId(null);
     setModal(null);
     pushToast("LOADOUT PURGED FROM MANIFEST", "danger");
   };
 
   const activateLoadout = (id: string) => {
     const loadout = loadouts.find((l) => l.id === id);
-    setActiveId(id);
-    setSelectedId(id);
-    pushToast(`LOADOUT DEPLOYED — "${loadout?.name ?? id}" ARMED`);
+    if (!loadout) return;
+    if (loadout.bindings.length === 0) {
+      pushToast("CANNOT ARM — LOADOUT HAS NO BINDINGS", "danger");
+      return;
+    }
+    const config = buildActivationConfig(
+      loadout,
+      stratagemById,
+      settings.directionKeys,
+    );
+    activateBackend(config)
+      .then(() => {
+        setActiveId(id);
+        setSelectedId(id);
+        pushToast(`LOADOUT DEPLOYED — "${loadout.name}" ARMED`);
+      })
+      .catch((err) => {
+        pushToast(`ARMING FAILED: ${errMsg(err)}`, "danger");
+      });
   };
 
   const disarm = () => {
+    deactivateBackend().catch(() => {
+      /* backend already idle */
+    });
     setActiveId(null);
     pushToast("AUTOTHROW DISARMED — SYSTEM ON STANDBY", "warn");
+  };
+
+  const updateSettings = (next: AppSettings) => {
+    setSettings(next);
+    setModal(null);
+    pushToast("INPUT MAPPING SAVED");
+    // Re-arm with the new direction keys so the engine stays in sync.
+    if (activeLoadout) rearm(activeLoadout, next.directionKeys);
   };
 
   // ── binding CRUD ──
@@ -261,32 +352,35 @@ export default function App() {
     if (modal?.kind !== "binding" || !draft.stratagemId) return;
     const { loadoutId, bindingId } = modal;
     const { combo, stratagemId } = draft;
-    setLoadouts((prev) =>
-      prev.map((l) => {
-        if (l.id !== loadoutId) return l;
-        if (bindingId) {
-          return {
-            ...l,
-            updatedAt: Date.now(),
-            bindings: l.bindings.map((b) =>
-              b.id === bindingId ? { ...b, combo, stratagemId } : b,
-            ),
-          };
-        }
+    const next = loadouts.map((l) => {
+      if (l.id !== loadoutId) return l;
+      if (bindingId) {
         return {
           ...l,
           updatedAt: Date.now(),
-          bindings: [
-            ...l.bindings,
-            {
-              id: uid(),
-              combo,
-              stratagemId,
-            },
-          ],
+          bindings: l.bindings.map((b) =>
+            b.id === bindingId ? { ...b, combo, stratagemId } : b,
+          ),
         };
-      }),
-    );
+      }
+      return {
+        ...l,
+        updatedAt: Date.now(),
+        bindings: [
+          ...l.bindings,
+          {
+            id: uid(),
+            combo,
+            stratagemId,
+          },
+        ],
+      };
+    });
+    setLoadouts(next);
+    const updated = next.find((l) => l.id === loadoutId);
+    if (activeId === loadoutId && updated) {
+      rearm(updated, settings.directionKeys);
+    }
     setModal(null);
     pushToast(bindingId ? "BINDING UPDATED" : "BINDING ADDED TO LOADOUT");
   };
@@ -294,17 +388,20 @@ export default function App() {
   const deleteBinding = () => {
     if (modal?.kind !== "deleteBinding") return;
     const { loadoutId, bindingId } = modal;
-    setLoadouts((prev) =>
-      prev.map((l) =>
-        l.id === loadoutId
-          ? {
-              ...l,
-              updatedAt: Date.now(),
-              bindings: l.bindings.filter((b) => b.id !== bindingId),
-            }
-          : l,
-      ),
+    const next = loadouts.map((l) =>
+      l.id === loadoutId
+        ? {
+            ...l,
+            updatedAt: Date.now(),
+            bindings: l.bindings.filter((b) => b.id !== bindingId),
+          }
+        : l,
     );
+    setLoadouts(next);
+    const updated = next.find((l) => l.id === loadoutId);
+    if (activeId === loadoutId && updated) {
+      rearm(updated, settings.directionKeys);
+    }
     setModal(null);
     pushToast("BINDING REMOVED", "warn");
   };
@@ -335,6 +432,7 @@ export default function App() {
         inputs={inputs}
         activeLoadout={activeLoadout}
         offline={syncStatus === "offline"}
+        onOpenSettings={() => setModal({ kind: "settings" })}
         onDisarm={disarm}
       />
 
@@ -436,6 +534,14 @@ export default function App() {
             />
           );
         })()}
+
+      {modal?.kind === "settings" && (
+        <SettingsModal
+          settings={settings}
+          onSave={updateSettings}
+          onClose={() => setModal(null)}
+        />
+      )}
 
       {modal?.kind === "deleteLoadout" &&
         (() => {

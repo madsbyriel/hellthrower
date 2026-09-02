@@ -1,95 +1,30 @@
-import { useEffect, useState } from "react";
-import type { ComboToken } from "../types";
+import { useComboRecording } from "../hooks/useComboRecording";
+import { combosEqual } from "../lib/keys";
 import { comboToString } from "../types";
 import { ComboDisplay, KeyCap } from "./KeyCap";
 import { IconAlert, IconX } from "./icons";
 
-const MODS: Array<ComboToken> = [
-  { kind: "mod", label: "Ctrl" },
-  { kind: "mod", label: "Alt" },
-  { kind: "mod", label: "Shift" },
-];
-
-const MOD_KEYS: Record<string, ComboToken> = {
-  Control: MODS[0],
-  Alt: MODS[1],
-  Shift: MODS[2],
-};
-
-const ARROWS: Record<string, string> = {
-  ArrowUp: "↑",
-  ArrowDown: "↓",
-  ArrowLeft: "←",
-  ArrowRight: "→",
-};
-
-function normalizeKey(key: string): string | null {
-  if (key in ARROWS) return ARROWS[key];
-  if (/^[a-z]$/i.test(key)) return key.toUpperCase();
-  if (/^[0-9]$/.test(key)) return key;
-  if (/^F([1-9]|1[0-2])$/.test(key)) return key;
-  if (key === " ") return "Space";
-  return null;
-}
-
+/**
+ * Combo recorder backed by keyrs: captures ANY key combination globally
+ * (not just modifiers + a key). Press the chord and release every key to
+ * commit it.
+ */
 export function KeyRecorder({
   value,
   onChange,
   conflicts,
 }: {
-  value: ComboToken[];
-  onChange: (combo: ComboToken[]) => void;
-  conflicts: ComboToken[][];
+  value: string[];
+  onChange: (combo: string[]) => void;
+  conflicts: string[][];
 }) {
-  const [recording, setRecording] = useState(false);
-  const [draft, setDraft] = useState<ComboToken[]>(value);
-
-  // Reset the live draft whenever a recording session starts.
-  useEffect(() => {
-    if (recording) setDraft([]);
-  }, [recording]);
-
-  useEffect(() => {
-    if (!recording) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        setRecording(false);
-        return;
-      }
-      if (e.key === "Backspace" || e.key === "Delete") {
-        e.preventDefault();
-        e.stopPropagation();
-        onChange([]);
-        return;
-      }
-      const mod = MOD_KEYS[e.key];
-      if (mod) {
-        e.preventDefault();
-        e.stopPropagation();
-        setDraft((prev) =>
-          prev.some((t) => t.kind === "mod" && t.label === mod.label)
-            ? prev
-            : [...prev, mod],
-        );
-        return;
-      }
-      const label = normalizeKey(e.key);
-      if (label) {
-        e.preventDefault();
-        e.stopPropagation();
-        onChange([...draft, { kind: "key", label }]);
-        setRecording(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [recording, draft, onChange]);
+  const { recording, draft, error, start, cancel } = useComboRecording(
+    (combo) => onChange(combo),
+  );
 
   const matchedConflict =
     value.length > 0
-      ? conflicts.find((c) => comboToString(c) === comboToString(value))
+      ? conflicts.find((combo) => combosEqual(combo, value))
       : undefined;
 
   return (
@@ -113,7 +48,7 @@ export function KeyRecorder({
               <span className="recorder-prompt">PRESS KEYS…</span>
             ) : (
               draft.map((token, i) => (
-                <span key={i}>
+                <span key={`${token}-${i}`}>
                   <KeyCap token={token} size="lg" />
                 </span>
               ))
@@ -127,24 +62,29 @@ export function KeyRecorder({
 
       <div className="recorder-bottom">
         {recording ? (
-          <button className="btn warning" onClick={() => setRecording(false)}>
+          <button className="btn warning" onClick={cancel}>
             <span className="rec-dot" aria-hidden="true" />
-            Recording… press modifier + key (Esc cancels)
+            Recording… release all keys to capture
           </button>
         ) : (
-          <button className="btn" onClick={() => setRecording(true)}>
+          <button className="btn" onClick={() => void start()}>
             <span className="rec-dot idle" aria-hidden="true" />
             Record Combo
           </button>
         )}
-        {matchedConflict ? (
+        {error ? (
+          <span className="conflict-warning">
+            <IconAlert size={13} />
+            {error}
+          </span>
+        ) : matchedConflict ? (
           <span className="conflict-warning">
             <IconAlert size={13} />
             COMBO ALREADY BOUND: {comboToString(matchedConflict)}
           </span>
         ) : (
           <span className="recorder-hint">
-            Modifiers: Ctrl / Alt / Shift — Trigger: any key or arrow
+            Any key combination — hold the chord, release to capture
           </span>
         )}
       </div>

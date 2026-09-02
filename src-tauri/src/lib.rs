@@ -4,6 +4,13 @@ use std::time::Duration;
 use serde::Serialize;
 use stratbase_client::{Binding, Client, Stratagem};
 
+mod keys;
+
+use keys::{
+    activate_loadout, cancel_combo_recording, deactivate_loadout, start_combo_recording,
+    ManagedKeyState,
+};
+
 // ┌─────────────────────────────────────────────────────────────────────┐
 // │ TEMPLATE ENDPOINT — replace with the real Stratbase URL later.      │
 // │ Can also be overridden at runtime via the STRATBASE_URL env var.    │
@@ -76,7 +83,14 @@ async fn fetch_stratagems() -> Result<Vec<StratagemPayload>, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![fetch_stratagems])
+        .manage(ManagedKeyState::default())
+        .invoke_handler(tauri::generate_handler![
+            fetch_stratagems,
+            start_combo_recording,
+            cancel_combo_recording,
+            activate_loadout,
+            deactivate_loadout
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

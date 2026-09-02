@@ -1,17 +1,19 @@
 import type { ArrowDir, Loadout } from "../types";
 import { ArrowGlyph } from "./ArrowGlyph";
 import { Emblem } from "./Emblem";
-import { IconPower } from "./icons";
+import { IconGear, IconPower } from "./icons";
 
 export function Header({
   inputs,
   activeLoadout,
   offline,
+  onOpenSettings,
   onDisarm,
 }: {
   inputs: ArrowDir[];
   activeLoadout: Loadout | null;
   offline: boolean;
+  onOpenSettings: () => void;
   onDisarm: () => void;
 }) {
   const armed = activeLoadout !== null;
@@ -53,6 +55,15 @@ export function Header({
           <span className="monitor-caret" aria-hidden="true" />
         </span>
       </div>
+
+      <button
+        className="icon-btn settings-btn"
+        title="Input mapping — direction keys"
+        aria-label="Open input mapping settings"
+        onClick={onOpenSettings}
+      >
+        <IconGear size={17} />
+      </button>
 
       <div className={`system-status ${armed ? "armed" : ""}`}>
         {armed ? (
