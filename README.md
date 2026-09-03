@@ -29,3 +29,9 @@ Add a udev rule (in either `/etc/udev/rules.d` or `/lib/udev/rules.d`) with the 
 KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"
 ```
 File names typically look like this: `37-uinput.rules`
+
+***Make sure the uinput drivers are loaded:***
+You may need to run this command whenever you start kanata for the first time.
+```bash
+sudo modprobe uinput
+```
