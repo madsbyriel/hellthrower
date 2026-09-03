@@ -2053,3 +2053,80 @@ button {
   line-height: 1.6;
   font-weight: 600;
 }
+
+/* ── Server location (boot error screen + settings modal) ───────────── */
+
+.boot-error-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.boot-server-label,
+.settings-server-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--yellow);
+}
+
+.server-url-input {
+  width: 100%;
+  min-width: 0;
+  background: #0b0e10;
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  padding: 10px 12px;
+  outline: none;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.server-url-input::placeholder {
+  color: var(--text-faint);
+}
+
+.server-url-input:focus {
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 1px rgba(255, 217, 46, 0.35);
+}
+
+.boot-server-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.boot-server-row .server-url-input {
+  flex: 1;
+}
+
+.settings-server {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-server-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-server-row .server-url-input {
+  flex: 1;
+}
+
+.settings-server .settings-hint {
+  margin-top: 2px;
+}

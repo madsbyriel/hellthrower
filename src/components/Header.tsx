@@ -58,8 +58,8 @@ export function Header({
 
       <button
         className="icon-btn settings-btn"
-        title="Input mapping — direction keys"
-        aria-label="Open input mapping settings"
+        title="Settings — direction keys & Stratbase server location"
+        aria-label="Open settings"
         onClick={onOpenSettings}
       >
         <IconGear size={17} />

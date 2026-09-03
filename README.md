@@ -35,3 +35,17 @@ You may need to run this command whenever you start kanata for the first time.
 ```bash
 sudo modprobe uinput
 ```
+
+---
+
+## Stratbase server location
+
+The app fetches its stratagem database from a Stratbase server. The server
+location is configurable:
+
+- **In the app** — Settings (gear icon) → *Server location*, and on the
+  locked-out "STRATBASE LINK FAILED" start-up screen. The chosen address is
+  remembered between launches.
+- **Default** — when no location is set in the app, the `STRATBASE_URL`
+  environment variable is used; otherwise the app falls back to
+  `http://localhost:8000`.

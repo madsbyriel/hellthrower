@@ -12,8 +12,12 @@ use keys::{
 };
 
 // ┌─────────────────────────────────────────────────────────────────────┐
-// │ TEMPLATE ENDPOINT — replace with the real Stratbase URL later.      │
-// │ Can also be overridden at runtime via the STRATBASE_URL env var.    │
+// │ Stratbase server location.                                         │
+// │                                                                    │
+// │ The user can pick a location at runtime (Settings → "Server        │
+// │ location", and from the locked-out boot error screen). When no     │
+// │ location is configured, the STRATBASE_URL env var wins, falling    │
+// │ back to the baked-in default below.                                │
 // └─────────────────────────────────────────────────────────────────────┘
 const DEFAULT_STRATBASE_URL: &str = "http://localhost:8000";
 
@@ -54,20 +58,35 @@ impl From<Stratagem> for StratagemPayload {
     }
 }
 
+/// The Stratbase location the app falls back to when the user has not
+/// configured one: `$STRATBASE_URL` if set, otherwise the baked-in
+/// default. Exposed to the frontend so it can show/seed the server
+/// location editor.
+#[tauri::command]
+fn default_stratbase_url() -> String {
+    stratbase_url()
+}
+
 /// Fetch every stratagem from the Stratbase API.
+///
+/// `base_url` is the location configured in the app; when it is absent or
+/// empty, [`default_stratbase_url`] is used instead.
 ///
 /// Errors are returned as plain strings so the frontend can fall back to
 /// its localStorage cache (or its locked-out error screen when no cache
 /// exists yet).
 #[tauri::command]
-async fn fetch_stratagems() -> Result<Vec<StratagemPayload>, String> {
+async fn fetch_stratagems(base_url: Option<String>) -> Result<Vec<StratagemPayload>, String> {
     let http = reqwest::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(REQUEST_TIMEOUT)
         .build()
         .map_err(|e| format!("failed to build HTTP client: {e}"))?;
 
-    let base_url = stratbase_url();
+    let base_url = match base_url {
+        Some(url) if !url.trim().is_empty() => url.trim().to_string(),
+        _ => stratbase_url(),
+    };
     let client = Client::with_http_client(base_url.clone(), http)
         .map_err(|e| format!("invalid Stratbase base URL {base_url:?}: {e}"))?;
 
@@ -86,6 +105,7 @@ pub fn run() {
         .manage(ManagedKeyState::default())
         .invoke_handler(tauri::generate_handler![
             fetch_stratagems,
+            default_stratbase_url,
             start_combo_recording,
             cancel_combo_recording,
             activate_loadout,

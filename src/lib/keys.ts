@@ -43,12 +43,15 @@ export function loadSettings(): AppSettings {
           down: typeof directionKeys.down === "string" ? fixLegacyKeyName(directionKeys.down) : DEFAULT_DIRECTION_KEYS.down,
           right: typeof directionKeys.right === "string" ? fixLegacyKeyName(directionKeys.right) : DEFAULT_DIRECTION_KEYS.right,
         },
+        // Older stored settings have no server location — fall back to the
+        // app default ("" = STRATBASE_URL env var / baked-in default).
+        serverUrl: typeof parsed.serverUrl === "string" ? parsed.serverUrl : "",
       };
     }
   } catch {
     /* corrupted settings — fall back */
   }
-  return { directionKeys: { ...DEFAULT_DIRECTION_KEYS } };
+  return { directionKeys: { ...DEFAULT_DIRECTION_KEYS }, serverUrl: "" };
 }
 
 export function saveSettings(settings: AppSettings): void {

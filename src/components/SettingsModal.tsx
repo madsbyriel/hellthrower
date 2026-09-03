@@ -14,15 +14,19 @@ const DIRECTIONS: Array<{ dir: ArrowDir; label: string }> = [
 ];
 
 /**
- * Input mapping settings: which physical keys are pressed to emit each
- * direction of a stratagem code. Defaults to WASD.
+ * Settings: which physical keys are pressed to emit each direction of a
+ * stratagem code (defaults to WASD), plus the Stratbase server location the
+ * app fetches the stratagem database from.
  */
 export function SettingsModal({
   settings,
+  defaultServerUrl,
   onSave,
   onClose,
 }: {
   settings: AppSettings;
+  /** The app-default Stratbase location (used when `serverUrl` is empty). */
+  defaultServerUrl?: string;
   onSave: (settings: AppSettings) => void;
   onClose: () => void;
 }) {
@@ -51,25 +55,31 @@ export function SettingsModal({
   const resetDefaults = () => {
     setRowError(null);
     setTarget(null);
-    setDraft({ directionKeys: { ...DEFAULT_DIRECTION_KEYS } });
+    // Only the direction keys reset — the server location is untouched.
+    setDraft((prev) => ({
+      directionKeys: { ...DEFAULT_DIRECTION_KEYS },
+      serverUrl: prev.serverUrl,
+    }));
   };
+
+  const appDefaultUrl = defaultServerUrl || "http://localhost:8000";
 
   return (
     <Modal
-      title="INPUT MAPPING"
-      subtitle="DIRECTION KEYS FOR STRATAGEM CODES"
+      title="SETTINGS"
+      subtitle="INPUT MAPPING · STRATBASE UPLINK"
       onClose={onClose}
       labelledBy="settings-modal-title"
       footer={
         <>
           <button className="btn" onClick={resetDefaults}>
-            Reset Defaults
+            Reset Direction Keys
           </button>
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
           <button className="btn primary" onClick={() => onSave(draft)}>
-            Save Mapping
+            Save Settings
           </button>
         </>
       }
@@ -112,6 +122,40 @@ export function SettingsModal({
         <p className="settings-error">{recorder.error}</p>
       )}
       {rowError && <p className="settings-error">{rowError}</p>}
+
+      <div className="settings-server">
+        <span className="settings-server-label">SERVER LOCATION</span>
+        <div className="settings-server-row">
+          <input
+            className="server-url-input"
+            type="text"
+            value={draft.serverUrl}
+            onChange={(e) =>
+              setDraft((prev) => ({ ...prev, serverUrl: e.target.value }))
+            }
+            placeholder={appDefaultUrl}
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="none"
+            aria-label="Stratbase server location"
+          />
+          <button
+            className="btn"
+            disabled={draft.serverUrl.trim() === ""}
+            onClick={() =>
+              setDraft((prev) => ({ ...prev, serverUrl: "" }))
+            }
+            title={`Use the app default (${appDefaultUrl})`}
+          >
+            Use Default
+          </button>
+        </div>
+        <p className="settings-hint">
+          THE APP FETCHES THE STRATAGEM DATABASE FROM THE STRATBASE SERVER AT
+          THIS ADDRESS. LEAVE IT EMPTY TO USE THE APP DEFAULT ({appDefaultUrl}).
+          SAVING A NEW ADDRESS IMMEDIATELY REESTABLISHES THE UPLINK.
+        </p>
+      </div>
 
       <p className="settings-hint">
         DEFAULTS: W = UP, A = LEFT, S = DOWN, D = RIGHT. WHEN A BINDING FIRES,

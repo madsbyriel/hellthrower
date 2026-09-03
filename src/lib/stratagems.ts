@@ -86,12 +86,32 @@ export function saveStratagemCache(stratagems: Stratagem[]): void {
 }
 
 /**
- * Fetch every stratagem through the Tauri backend, which uses the
- * stratbase-client crate. Throws when the backend is unreachable, the API
- * fails, or nothing usable comes back.
+ * The Stratbase location the app falls back to when no location is
+ * configured (the `STRATBASE_URL` env var, or the baked-in default).
+ * Empty string when the backend cannot be asked (e.g. plain-browser dev).
  */
-export async function fetchStratagemsFromClient(): Promise<Stratagem[]> {
-  const raw = await invoke<RawStratagem[]>("fetch_stratagems");
+export async function defaultStratbaseUrl(): Promise<string> {
+  try {
+    return await invoke<string>("default_stratbase_url");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Fetch every stratagem through the Tauri backend, which uses the
+ * stratbase-client crate.
+ *
+ * `baseUrl` is the location configured in the app; pass undefined/empty to
+ * use the backend's own default (see {@link defaultStratbaseUrl}). Throws
+ * when the backend is unreachable, the API fails, or nothing usable comes
+ * back.
+ */
+export async function fetchStratagemsFromClient(baseUrl?: string): Promise<Stratagem[]> {
+  const url = baseUrl?.trim();
+  const raw = url
+    ? await invoke<RawStratagem[]>("fetch_stratagems", { baseUrl: url })
+    : await invoke<RawStratagem[]>("fetch_stratagems");
   const stratagems = normalizeStratagems(Array.isArray(raw) ? raw : []);
   if (stratagems.length === 0) {
     throw new Error("Stratbase returned no usable stratagems");

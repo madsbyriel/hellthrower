@@ -32,6 +32,12 @@ export interface DirectionKeys {
 
 export interface AppSettings {
   directionKeys: DirectionKeys;
+  /**
+   * Stratbase server base URL (e.g. "http://localhost:8000"). Empty means
+   * "use the app default": the `STRATBASE_URL` environment variable when
+   * set, otherwise the baked-in default.
+   */
+  serverUrl: string;
 }
 
 export type ToastKind = "ok" | "warn" | "danger";

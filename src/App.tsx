@@ -20,6 +20,7 @@ import {
   setPointerInApp,
 } from "./lib/keys";
 import {
+  defaultStratbaseUrl,
   fetchStratagemsFromClient,
   loadStratagemCache,
   remapLoadoutBindings,
@@ -94,6 +95,8 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState<string | null>(null);
   const [appReady, setAppReady] = useState(false);
+  /** The backend's default Stratbase location (empty until resolved). */
+  const [defaultServerUrl, setDefaultServerUrl] = useState("");
 
   const [loadouts, setLoadouts] = useState<Loadout[]>(loadLoadouts);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
@@ -106,6 +109,10 @@ export default function App() {
   const [inputs, setInputs] = useState<ArrowDir[]>([]);
 
   const bootingRef = useRef(false);
+  // Mirror of `settings` that the (stable) boot callback can read without
+  // re-creating itself on every settings change.
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   const pushToast = useCallback((message: string, kind: ToastKind = "ok") => {
     const id = uid();
@@ -129,37 +136,55 @@ export default function App() {
     setAppReady(true);
   }, []);
 
-  const boot = useCallback(async () => {
-    if (bootingRef.current) return;
-    bootingRef.current = true;
-    setSyncStatus("loading");
-    setSyncError(null);
-    try {
-      const fresh = await fetchStratagemsFromClient();
-      saveStratagemCache(fresh);
-      finishBoot(fresh);
-      setSyncStatus("online");
-    } catch (err) {
-      const cached = loadStratagemCache();
-      if (cached) {
-        finishBoot(cached.stratagems);
-        setSyncStatus("offline");
-        pushToast(
-          "STRATBASE UNREACHABLE — USING CACHED STRATAGEM DATABASE",
-          "warn",
-        );
-      } else {
-        setSyncStatus("error");
-        setSyncError(err instanceof Error ? err.message : String(err));
+  const boot = useCallback(
+    async (requestedUrl?: string) => {
+      if (bootingRef.current) return;
+      bootingRef.current = true;
+      setSyncStatus("loading");
+      setSyncError(null);
+      try {
+        // The configured server location wins; empty means "app default"
+        // (STRATBASE_URL env var, else the backend's baked-in default).
+        const baseUrl = (requestedUrl ?? settingsRef.current.serverUrl).trim();
+        const fresh = await fetchStratagemsFromClient(baseUrl);
+        saveStratagemCache(fresh);
+        finishBoot(fresh);
+        setSyncStatus("online");
+      } catch (err) {
+        const cached = loadStratagemCache();
+        if (cached) {
+          finishBoot(cached.stratagems);
+          setSyncStatus("offline");
+          pushToast(
+            "STRATBASE UNREACHABLE — USING CACHED STRATAGEM DATABASE",
+            "warn",
+          );
+        } else {
+          setSyncStatus("error");
+          setSyncError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        bootingRef.current = false;
       }
-    } finally {
-      bootingRef.current = false;
-    }
-  }, [finishBoot, pushToast]);
+    },
+    [finishBoot, pushToast],
+  );
 
   useEffect(() => {
     boot();
   }, [boot]);
+
+  // Learn the backend's default Stratbase location (env var / baked-in
+  // default) so the UI can show it when the user hasn't configured one.
+  useEffect(() => {
+    let alive = true;
+    defaultStratbaseUrl().then((url) => {
+      if (alive && url) setDefaultServerUrl(url);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // ── mock persistence (write only after boot to avoid clobbering seeds) ──
   useEffect(() => {
@@ -398,11 +423,20 @@ export default function App() {
   };
 
   const updateSettings = (next: AppSettings) => {
-    setSettings(next);
+    // Store the server location trimmed; empty = use the app default.
+    const updated: AppSettings = { ...next, serverUrl: next.serverUrl.trim() };
+    const serverChanged = updated.serverUrl !== settings.serverUrl;
+    setSettings(updated);
     setModal(null);
-    pushToast("INPUT MAPPING SAVED");
     // Re-arm with the new direction keys so the engine stays in sync.
-    if (activeLoadout) rearm(activeLoadout, next.directionKeys);
+    if (activeLoadout) rearm(activeLoadout, updated.directionKeys);
+    if (serverChanged) {
+      // The uplink target moved — re-fetch the stratagem database from it.
+      pushToast("SERVER LOCATION CHANGED — REESTABLISHING UPLINK", "warn");
+      void boot(updated.serverUrl);
+    } else {
+      pushToast("INPUT MAPPING SAVED");
+    }
   };
 
   // ── binding CRUD ──
@@ -468,16 +502,35 @@ export default function App() {
   if (syncStatus === "loading") {
     return (
       <div className="app">
-        <BootScreen status="loading" onRetry={boot} />
+        <BootScreen
+          key="loading"
+          status="loading"
+          onRetry={() => void boot()}
+        />
         <FxLayers />
       </div>
     );
   }
 
   if (syncStatus === "error" || stratagems === null) {
+    // The configured server location, or the app default when none is set —
+    // shown in the error screen's editor so the user can repoint the uplink.
+    // (Keyed so the editor re-seeds from `serverUrl` each time we get here.)
+    const currentServerUrl = settings.serverUrl.trim() || defaultServerUrl;
     return (
       <div className="app">
-        <BootScreen status="error" message={syncError} onRetry={boot} />
+        <BootScreen
+          key="error"
+          status="error"
+          message={syncError}
+          serverUrl={currentServerUrl}
+          onRetry={(url) => {
+            // Remember what was typed so the next launch (and this retry)
+            // targets the same server.
+            setSettings((prev) => ({ ...prev, serverUrl: url }));
+            void boot(url);
+          }}
+        />
         <FxLayers />
       </div>
     );
@@ -596,6 +649,7 @@ export default function App() {
       {modal?.kind === "settings" && (
         <SettingsModal
           settings={settings}
+          defaultServerUrl={defaultServerUrl}
           onSave={updateSettings}
           onClose={() => setModal(null)}
         />
