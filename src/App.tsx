@@ -16,7 +16,6 @@ import {
   errMsg,
   loadSettings,
   saveSettings,
-  setAppFocused,
   setPointerInApp,
 } from "./lib/keys";
 import {
@@ -292,23 +291,15 @@ export default function App() {
     };
   }, [pushToast]);
 
-  // ── report window focus + pointer position to the engine ──
-  // Chords never fire while the app is focused (the user is in the UI,
-  // not in-game), and mouse-button chords never fire while the pointer is
-  // over this window (such a click never reaches the game).
+  // ── report pointer position to the engine ──
+  // Mouse-button chords never fire while the pointer is over this window:
+  // such a click never reaches the game, it would only click our UI.
   useEffect(() => {
-    const onFocus = () => void setAppFocused(true);
-    const onBlur = () => void setAppFocused(false);
     const onPointerEnter = () => void setPointerInApp(true);
     const onPointerLeave = () => void setPointerInApp(false);
-    void setAppFocused(document.hasFocus());
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("blur", onBlur);
     document.addEventListener("mouseenter", onPointerEnter);
     document.addEventListener("mouseleave", onPointerLeave);
     return () => {
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("blur", onBlur);
       document.removeEventListener("mouseenter", onPointerEnter);
       document.removeEventListener("mouseleave", onPointerLeave);
     };

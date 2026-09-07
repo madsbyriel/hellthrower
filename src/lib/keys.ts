@@ -111,15 +111,6 @@ export async function cancelComboRecording(): Promise<void> {
   await invoke("cancel_combo_recording");
 }
 
-/** Report whether the app window has OS focus (chords are ignored while it does). */
-export async function setAppFocused(focused: boolean): Promise<void> {
-  try {
-    await invoke("set_app_focused", { focused });
-  } catch {
-    /* not running inside Tauri */
-  }
-}
-
 /** Report whether the pointer is over the app window (mouse chords are ignored while it is). */
 export async function setPointerInApp(inside: boolean): Promise<void> {
   try {

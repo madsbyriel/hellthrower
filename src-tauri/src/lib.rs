@@ -7,8 +7,8 @@ use stratbase_client::{Binding, Client, Stratagem};
 mod keys;
 
 use keys::{
-    activate_loadout, cancel_combo_recording, deactivate_loadout, set_app_focused,
-    set_pointer_in_app, start_combo_recording, ManagedKeyState,
+    activate_loadout, cancel_combo_recording, deactivate_loadout, set_pointer_in_app,
+    start_combo_recording, ManagedKeyState,
 };
 
 // ┌─────────────────────────────────────────────────────────────────────┐
@@ -110,7 +110,6 @@ pub fn run() {
             cancel_combo_recording,
             activate_loadout,
             deactivate_loadout,
-            set_app_focused,
             set_pointer_in_app
         ])
         .run(tauri::generate_context!())
