@@ -1,4 +1,5 @@
 import type { Loadout } from "../types";
+import { Emblem } from "./Emblem";
 import { IconPencil, IconPlus, IconPower, IconTrash } from "./icons";
 
 function timeAgo(ts: number): string {
@@ -15,6 +16,9 @@ export function Sidebar({
   loadouts,
   selectedId,
   activeId,
+  kitCount,
+  kitSelected,
+  onSelectKit,
   onSelect,
   onCreate,
   onEdit,
@@ -24,6 +28,9 @@ export function Sidebar({
   loadouts: Loadout[];
   selectedId: string | null;
   activeId: string | null;
+  kitCount: number;
+  kitSelected: boolean;
+  onSelectKit: () => void;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onEdit: (id: string) => void;
@@ -39,6 +46,32 @@ export function Sidebar({
           <IconPlus size={14} />
           New Loadout
         </button>
+      </div>
+
+      <div
+        className={`kit-entry ${kitSelected ? "selected" : ""}`}
+        onClick={onSelectKit}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSelectKit();
+        }}
+        title="Bindings active in every loadout"
+      >
+        <span className="kit-entry-icon" aria-hidden="true">
+          <Emblem size={20} />
+        </span>
+        <div className="loadout-item-main">
+          <div className="loadout-item-top">
+            <span className="loadout-name">STANDARD KIT</span>
+            <span className="kit-chip">GLOBAL</span>
+          </div>
+          <div className="loadout-meta">
+            <span>
+              {kitCount} STRATAGEM{kitCount === 1 ? "" : "S"}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="loadout-list">

@@ -2130,3 +2130,157 @@ button {
 .settings-server .settings-hint {
   margin-top: 2px;
 }
+
+/* ── Standard Kit ───────────────────────────────────────────────────── */
+
+.kit-entry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 12px 12px 0;
+  border: 1px solid rgba(255, 217, 46, 0.35);
+  background: rgba(255, 217, 46, 0.05);
+  cursor: pointer;
+  clip-path: polygon(
+    8px 0,
+    100% 0,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    0 100%,
+    0 8px
+  );
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.kit-entry:hover {
+  border-color: rgba(255, 217, 46, 0.7);
+  background: rgba(255, 217, 46, 0.1);
+}
+
+.kit-entry.selected {
+  border-color: var(--yellow);
+  background: var(--yellow-soft);
+}
+
+.kit-entry.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--yellow);
+  box-shadow: 0 0 10px var(--yellow);
+}
+
+.kit-entry-icon {
+  color: var(--yellow);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.kit-chip {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  color: #141414;
+  background: var(--yellow);
+  padding: 2px 6px;
+  flex-shrink: 0;
+  clip-path: polygon(
+    4px 0,
+    100% 0,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    0 100%,
+    0 4px
+  );
+}
+
+/* tags on binding cards */
+
+.card-tag {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  padding: 2px 7px;
+  flex-shrink: 0;
+  clip-path: polygon(
+    4px 0,
+    100% 0,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    0 100%,
+    0 4px
+  );
+}
+
+.card-tag.global {
+  color: #141414;
+  background: var(--yellow);
+}
+
+.card-tag.muted {
+  color: var(--text-faint);
+  border: 1px solid var(--line-strong);
+  background: transparent;
+}
+
+.binding-card.dimmed {
+  opacity: 0.55;
+}
+
+/* kit empty / links */
+
+.kit-empty {
+  margin: 0 20px 14px;
+  border: 1px dashed var(--line-strong);
+  padding: 16px 18px;
+  color: var(--text-faint);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: #ffe94d;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* recorder override note */
+
+.override-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}

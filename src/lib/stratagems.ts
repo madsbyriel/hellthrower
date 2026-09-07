@@ -183,6 +183,21 @@ function migrateCombo(value: unknown): string[] {
   });
 }
 
+/** Validate and revive raw binding data (shared by loadouts and the kit). */
+export function reviveBindings(raw: unknown): Binding[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item): Binding[] => {
+    if (!item || typeof item !== "object") return [];
+    const binding = item as Partial<Binding>;
+    if (typeof binding.id !== "string" || typeof binding.stratagemId !== "string") {
+      return [];
+    }
+    const combo = migrateCombo(binding.combo);
+    if (combo.length === 0) return [];
+    return [{ id: binding.id, stratagemId: binding.stratagemId, combo }];
+  });
+}
+
 /** Validate and revive raw localStorage data into `Loadout[]`. */
 export function reviveLoadouts(parsed: unknown): Loadout[] {
   if (!Array.isArray(parsed)) return [];
@@ -192,23 +207,12 @@ export function reviveLoadouts(parsed: unknown): Loadout[] {
     if (typeof loadout.id !== "string" || typeof loadout.name !== "string") {
       return [];
     }
-    const rawBindings = Array.isArray(loadout.bindings) ? loadout.bindings : [];
-    const bindings = rawBindings.flatMap((raw): Binding[] => {
-      if (!raw || typeof raw !== "object") return [];
-      const binding = raw as Partial<Binding>;
-      if (typeof binding.id !== "string" || typeof binding.stratagemId !== "string") {
-        return [];
-      }
-      const combo = migrateCombo(binding.combo);
-      if (combo.length === 0) return [];
-      return [{ id: binding.id, stratagemId: binding.stratagemId, combo }];
-    });
     return [
       {
         id: loadout.id,
         name: loadout.name,
         description: typeof loadout.description === "string" ? loadout.description : "",
-        bindings,
+        bindings: reviveBindings(loadout.bindings),
         createdAt: typeof loadout.createdAt === "number" ? loadout.createdAt : Date.now(),
         updatedAt: typeof loadout.updatedAt === "number" ? loadout.updatedAt : Date.now(),
       },
@@ -246,8 +250,6 @@ export function seedLoadouts(stratagems: Stratagem[]): Loadout[] {
       createdAt: now - 1000 * 60 * 60 * 26,
       updatedAt: now - 1000 * 60 * 12,
       bindings: [
-        bind(stratagems, "Reinforce", ["F1"]),
-        bind(stratagems, "Resupply", ["F2"]),
         bind(stratagems, "Eagle Airstrike", ["LeftCtrl", "Digit1"]),
         bind(stratagems, "Orbital Railcannon Strike", ["LeftCtrl", "Digit2"]),
         bind(stratagems, "Eagle 500KG Bomb", ["LeftCtrl", "Digit3"]),
@@ -262,12 +264,18 @@ export function seedLoadouts(stratagems: Stratagem[]): Loadout[] {
       createdAt: now - 1000 * 60 * 60 * 3,
       updatedAt: now - 1000 * 60 * 60 * 2,
       bindings: [
-        bind(stratagems, "Reinforce", ["F1"]),
-        bind(stratagems, "Resupply", ["F2"]),
         bind(stratagems, "Eagle Napalm Airstrike", ["LeftCtrl", "Digit1"]),
         bind(stratagems, "Orbital Gatling Barrage", ["LeftCtrl", "Digit2"]),
         bind(stratagems, "Orbital Gas Strike", ["LeftCtrl", "Digit3"]),
       ].filter((b): b is Binding => b !== null),
     },
   ];
+}
+
+/** First-launch Standard Kit: the essentials every Helldiver carries. */
+export function seedKit(stratagems: Stratagem[]): Binding[] {
+  return [
+    bind(stratagems, "Reinforce", ["F1"]),
+    bind(stratagems, "Resupply", ["F2"]),
+  ].filter((b): b is Binding => b !== null);
 }

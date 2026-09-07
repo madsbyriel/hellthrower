@@ -4,6 +4,7 @@ import { BindingEditor, type BindingDraft } from "./components/BindingEditor";
 import { BootScreen } from "./components/BootScreen";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Header } from "./components/Header";
+import { KitPanel } from "./components/KitPanel";
 import { LoadoutEditor, type LoadoutDraft } from "./components/LoadoutEditor";
 import { EmptyPanel, LoadoutPanel } from "./components/LoadoutPanel";
 import { SettingsModal } from "./components/SettingsModal";
@@ -13,6 +14,7 @@ import {
   activateBackend,
   buildActivationConfig,
   deactivateBackend,
+  effectiveBindings,
   errMsg,
   loadSettings,
   saveSettings,
@@ -23,8 +25,10 @@ import {
   fetchStratagemsFromClient,
   loadStratagemCache,
   remapLoadoutBindings,
+  reviveBindings,
   reviveLoadouts,
   saveStratagemCache,
+  seedKit,
   seedLoadouts,
 } from "./lib/stratagems";
 import type {
@@ -42,6 +46,7 @@ import "./App.css";
 
 const STORAGE_LOADOUTS = "hellthrower.loadouts.v1";
 const STORAGE_ACTIVE = "hellthrower.active.v1";
+const STORAGE_KIT = "hellthrower.standardKit.v1";
 
 function loadStored<T>(key: string, fallback: () => T): T {
   try {
@@ -63,15 +68,30 @@ function loadLoadouts(): Loadout[] {
   return [];
 }
 
+function loadKit(): Binding[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KIT);
+    if (raw) return reviveBindings(JSON.parse(raw));
+  } catch {
+    /* corrupted storage — start empty */
+  }
+  return [];
+}
+
 // ── Modals ────────────────────────────────────────────────────────────
 
 type ModalState =
   | { kind: "loadout"; loadoutId: string | null }
   | { kind: "binding"; loadoutId: string; bindingId: string | null }
+  | { kind: "kitBinding"; bindingId: string | null }
   | { kind: "deleteLoadout"; loadoutId: string }
   | { kind: "deleteBinding"; loadoutId: string; bindingId: string }
+  | { kind: "deleteKitBinding"; bindingId: string }
   | { kind: "settings" }
   | null;
+
+/** What the main panel is showing: a loadout or the Standard Kit. */
+type Selection = { kind: "loadout"; id: string } | { kind: "kit" } | null;
 
 function FxLayers() {
   return (
@@ -98,11 +118,12 @@ export default function App() {
   const [defaultServerUrl, setDefaultServerUrl] = useState("");
 
   const [loadouts, setLoadouts] = useState<Loadout[]>(loadLoadouts);
+  const [kit, setKit] = useState<Binding[]>(loadKit);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [activeId, setActiveId] = useState<string | null>(() =>
     loadStored<string | null>(STORAGE_ACTIVE, () => null),
   );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [inputs, setInputs] = useState<ArrowDir[]>([]);
@@ -130,6 +151,10 @@ export default function App() {
     } else {
       // First launch: seed demo loadouts against whatever the API returned.
       setLoadouts(seedLoadouts(list));
+    }
+    if (localStorage.getItem(STORAGE_KIT) === null) {
+      // First launch: the Standard Kit starts with the essentials.
+      setKit(seedKit(list));
     }
     setStratagems(list);
     setAppReady(true);
@@ -196,6 +221,15 @@ export default function App() {
   }, [loadouts, appReady]);
 
   useEffect(() => {
+    if (!appReady) return;
+    try {
+      localStorage.setItem(STORAGE_KIT, JSON.stringify(kit));
+    } catch {
+      /* storage unavailable — in-memory only */
+    }
+  }, [kit, appReady]);
+
+  useEffect(() => {
     try {
       if (activeId) localStorage.setItem(STORAGE_ACTIVE, JSON.stringify(activeId));
       else localStorage.removeItem(STORAGE_ACTIVE);
@@ -210,10 +244,17 @@ export default function App() {
 
   // Keep a valid selection when loadouts change (seed, delete, …).
   useEffect(() => {
-    if (loadouts.length > 0 && !loadouts.some((l) => l.id === selectedId)) {
-      setSelectedId(loadouts[0].id);
+    const selectingKit = selection?.kind === "kit";
+    const selectedExists =
+      selection?.kind === "loadout" &&
+      loadouts.some((l) => l.id === selection.id);
+    if (selectingKit || selectedExists) return;
+    if (loadouts.length > 0) {
+      setSelection({ kind: "loadout", id: loadouts[0].id });
+    } else if (selection?.kind === "loadout") {
+      setSelection(null);
     }
-  }, [loadouts, selectedId]);
+  }, [loadouts, selection]);
 
   // ── cosmetic input monitor (arrow keys / WASD only) ──
   useEffect(() => {
@@ -306,9 +347,13 @@ export default function App() {
   }, []);
 
   const selectedLoadout = useMemo(
-    () => loadouts.find((l) => l.id === selectedId) ?? null,
-    [loadouts, selectedId],
+    () =>
+      selection?.kind === "loadout"
+        ? (loadouts.find((l) => l.id === selection.id) ?? null)
+        : null,
+    [loadouts, selection],
   );
+  const kitSelected = selection?.kind === "kit";
   const activeLoadout = useMemo(
     () => loadouts.find((l) => l.id === activeId) ?? null,
     [loadouts, activeId],
@@ -325,8 +370,16 @@ export default function App() {
 
   // ── engine arming helpers ──
   const rearm = useCallback(
-    (loadout: Loadout, directionKeys: AppSettings["directionKeys"]) => {
-      const config = buildActivationConfig(loadout, stratagemById, directionKeys);
+    (
+      loadout: Loadout,
+      kitBindings: Binding[],
+      directionKeys: AppSettings["directionKeys"],
+    ) => {
+      const config = buildActivationConfig(
+        effectiveBindings(kitBindings, loadout.bindings),
+        stratagemById,
+        directionKeys,
+      );
       activateBackend(config).catch((err) => {
         pushToast(`RE-ARM FAILED: ${errMsg(err)}`, "danger");
       });
@@ -345,7 +398,7 @@ export default function App() {
       updatedAt: Date.now(),
     };
     setLoadouts((prev) => [loadout, ...prev]);
-    setSelectedId(loadout.id);
+    setSelection({ kind: "loadout", id: loadout.id });
     setModal(null);
     pushToast("LOADOUT CREATED — READY FOR CONFIGURATION");
   };
@@ -376,7 +429,9 @@ export default function App() {
     }
     const remaining = loadouts.filter((l) => l.id !== loadoutId);
     setLoadouts(remaining);
-    if (selectedId === loadoutId) setSelectedId(remaining[0]?.id ?? null);
+    if (selection?.kind === "loadout" && selection.id === loadoutId) {
+      setSelection(remaining[0] ? { kind: "loadout", id: remaining[0].id } : null);
+    }
     setModal(null);
     pushToast("LOADOUT PURGED FROM MANIFEST", "danger");
   };
@@ -384,19 +439,20 @@ export default function App() {
   const activateLoadout = (id: string) => {
     const loadout = loadouts.find((l) => l.id === id);
     if (!loadout) return;
-    if (loadout.bindings.length === 0) {
-      pushToast("CANNOT ARM — LOADOUT HAS NO BINDINGS", "danger");
+    const effective = effectiveBindings(kit, loadout.bindings);
+    if (effective.length === 0) {
+      pushToast("CANNOT ARM — NO BINDINGS IN LOADOUT OR STANDARD KIT", "danger");
       return;
     }
     const config = buildActivationConfig(
-      loadout,
+      effective,
       stratagemById,
       settings.directionKeys,
     );
     activateBackend(config)
       .then(() => {
         setActiveId(id);
-        setSelectedId(id);
+        setSelection({ kind: "loadout", id });
         pushToast(`LOADOUT DEPLOYED — "${loadout.name}" ARMED`);
       })
       .catch((err) => {
@@ -420,7 +476,7 @@ export default function App() {
     setSettings(updated);
     setModal(null);
     // Re-arm with the new direction keys so the engine stays in sync.
-    if (activeLoadout) rearm(activeLoadout, updated.directionKeys);
+    if (activeLoadout) rearm(activeLoadout, kit, updated.directionKeys);
     if (serverChanged) {
       // The uplink target moved — re-fetch the stratagem database from it.
       pushToast("SERVER LOCATION CHANGED — REESTABLISHING UPLINK", "warn");
@@ -462,7 +518,7 @@ export default function App() {
     setLoadouts(next);
     const updated = next.find((l) => l.id === loadoutId);
     if (activeId === loadoutId && updated) {
-      rearm(updated, settings.directionKeys);
+      rearm(updated, kit, settings.directionKeys);
     }
     setModal(null);
     pushToast(bindingId ? "BINDING UPDATED" : "BINDING ADDED TO LOADOUT");
@@ -483,10 +539,38 @@ export default function App() {
     setLoadouts(next);
     const updated = next.find((l) => l.id === loadoutId);
     if (activeId === loadoutId && updated) {
-      rearm(updated, settings.directionKeys);
+      rearm(updated, kit, settings.directionKeys);
     }
     setModal(null);
     pushToast("BINDING REMOVED", "warn");
+  };
+
+  // ── Standard Kit CRUD ──
+  const saveKitBinding = (draft: BindingDraft) => {
+    if (modal?.kind !== "kitBinding" || !draft.stratagemId) return;
+    const { bindingId } = modal;
+    const { combo, stratagemId } = draft;
+    const next = bindingId
+      ? kit.map((b) =>
+          b.id === bindingId ? { ...b, combo, stratagemId } : b,
+        )
+      : [...kit, { id: uid(), combo, stratagemId }];
+    setKit(next);
+    setModal(null);
+    pushToast(
+      bindingId ? "KIT BINDING UPDATED" : "BINDING ADDED TO STANDARD KIT",
+    );
+    if (activeLoadout) rearm(activeLoadout, next, settings.directionKeys);
+  };
+
+  const deleteKitBinding = () => {
+    if (modal?.kind !== "deleteKitBinding") return;
+    const { bindingId } = modal;
+    const next = kit.filter((b) => b.id !== bindingId);
+    setKit(next);
+    setModal(null);
+    pushToast("KIT BINDING REMOVED", "warn");
+    if (activeLoadout) rearm(activeLoadout, next, settings.directionKeys);
   };
 
   // ── boot / locked-out screens ──
@@ -541,18 +625,34 @@ export default function App() {
       <div className="shell">
         <Sidebar
           loadouts={loadouts}
-          selectedId={selectedId}
+          selectedId={selection?.kind === "loadout" ? selection.id : null}
           activeId={activeId}
-          onSelect={setSelectedId}
+          kitCount={kit.length}
+          kitSelected={kitSelected}
+          onSelectKit={() => setSelection({ kind: "kit" })}
+          onSelect={(id) => setSelection({ kind: "loadout", id })}
           onCreate={() => setModal({ kind: "loadout", loadoutId: null })}
           onEdit={(id) => setModal({ kind: "loadout", loadoutId: id })}
           onDelete={(id) => setModal({ kind: "deleteLoadout", loadoutId: id })}
           onActivate={activateLoadout}
         />
 
-        {selectedLoadout ? (
+        {kitSelected ? (
+          <KitPanel
+            kit={kit}
+            stratagemFor={stratagemFor}
+            onAddBinding={() => setModal({ kind: "kitBinding", bindingId: null })}
+            onEditBinding={(bindingId) =>
+              setModal({ kind: "kitBinding", bindingId })
+            }
+            onDeleteBinding={(bindingId) =>
+              setModal({ kind: "deleteKitBinding", bindingId })
+            }
+          />
+        ) : selectedLoadout ? (
           <LoadoutPanel
             loadout={selectedLoadout}
+            kit={kit}
             stratagemFor={stratagemFor}
             armed={selectedLoadout.id === activeId}
             onActivate={() => activateLoadout(selectedLoadout.id)}
@@ -587,10 +687,12 @@ export default function App() {
                 bindingId,
               })
             }
+            onManageKit={() => setSelection({ kind: "kit" })}
           />
         ) : (
           <EmptyPanel
             onCreate={() => setModal({ kind: "loadout", loadoutId: null })}
+            onManageKit={() => setSelection({ kind: "kit" })}
           />
         )}
       </div>
@@ -631,7 +733,27 @@ export default function App() {
                 (b) => b.id !== modal.bindingId,
               )}
               stratagems={stratagems}
+              overrides={kit.map((b) => b.combo)}
               onSave={saveBinding}
+              onClose={() => setModal(null)}
+            />
+          );
+        })()}
+
+      {modal?.kind === "kitBinding" &&
+        (() => {
+          const existing = modal.bindingId
+            ? kit.find((b) => b.id === modal.bindingId)
+            : undefined;
+          return (
+            <BindingEditor
+              initial={{
+                combo: existing?.combo ?? [],
+                stratagemId: existing?.stratagemId ?? null,
+              }}
+              otherBindings={kit.filter((b) => b.id !== modal.bindingId)}
+              stratagems={stratagems}
+              onSave={saveKitBinding}
               onClose={() => setModal(null)}
             />
           );
@@ -676,6 +798,24 @@ export default function App() {
               message={`Remove the ${stratagem?.name ?? "stratagem"} binding from "${loadout?.name ?? "this loadout"}"?`}
               confirmLabel="Remove Binding"
               onConfirm={deleteBinding}
+              onClose={() => setModal(null)}
+            />
+          );
+        })()}
+
+      {modal?.kind === "deleteKitBinding" &&
+        (() => {
+          const binding = kit.find((b) => b.id === modal.bindingId);
+          const stratagem = binding
+            ? stratagemById.get(binding.stratagemId)
+            : undefined;
+          return (
+            <ConfirmDialog
+              title="REMOVE KIT BINDING"
+              message={`Remove the ${stratagem?.name ?? "stratagem"} binding from the Standard Kit?`}
+              detail="It will stop firing in every loadout."
+              confirmLabel="Remove Binding"
+              onConfirm={deleteKitBinding}
               onClose={() => setModal(null)}
             />
           );

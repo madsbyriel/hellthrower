@@ -13,12 +13,15 @@ export function BindingEditor({
   initial,
   otherBindings,
   stratagems,
+  overrides,
   onSave,
   onClose,
 }: {
   initial: BindingDraft;
   otherBindings: Binding[];
   stratagems: Stratagem[];
+  /** Kit combos this binding may shadow (informational). */
+  overrides?: string[][];
   onSave: (draft: BindingDraft) => void;
   onClose: () => void;
 }) {
@@ -65,7 +68,12 @@ export function BindingEditor({
     >
       <div className="binding-editor">
         <div className="binding-editor-combo">
-          <KeyRecorder value={combo} onChange={handleCombo} conflicts={conflicts} />
+          <KeyRecorder
+            value={combo}
+            onChange={handleCombo}
+            conflicts={conflicts}
+            overrides={overrides}
+          />
           <div className="editor-summary">
             <span className="summary-label">OUTPUT</span>
             <span className="summary-value">

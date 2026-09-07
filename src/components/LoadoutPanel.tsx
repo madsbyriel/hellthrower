@@ -1,10 +1,12 @@
 import type { Binding, Loadout, Stratagem } from "../types";
+import { combosEqual } from "../lib/keys";
 import { BindingCard } from "./BindingCard";
 import { Emblem } from "./Emblem";
-import { IconPencil, IconPlus, IconPower, IconTrash } from "./icons";
+import { IconGear, IconPencil, IconPlus, IconPower, IconTrash } from "./icons";
 
 export function LoadoutPanel({
   loadout,
+  kit,
   stratagemFor,
   armed,
   onActivate,
@@ -14,8 +16,10 @@ export function LoadoutPanel({
   onAddBinding,
   onEditBinding,
   onDeleteBinding,
+  onManageKit,
 }: {
   loadout: Loadout;
+  kit: Binding[];
   stratagemFor: (binding: Binding) => Stratagem | undefined;
   armed: boolean;
   onActivate: () => void;
@@ -25,8 +29,13 @@ export function LoadoutPanel({
   onAddBinding: () => void;
   onEditBinding: (bindingId: string) => void;
   onDeleteBinding: (bindingId: string) => void;
+  onManageKit: () => void;
 }) {
   const bindings = loadout.bindings;
+  const shadowedByLoadout = (kitBinding: Binding) =>
+    bindings.some((b) => combosEqual(b.combo, kitBinding.combo));
+  const overridesKit = (binding: Binding) =>
+    kit.some((kitBinding) => combosEqual(kitBinding.combo, binding.combo));
   return (
     <main className="loadout-panel">
       <div className="panel-head">
@@ -82,6 +91,48 @@ export function LoadoutPanel({
       )}
 
       <div className="bindings-head">
+        <h3 className="section-title">STANDARD KIT</h3>
+        <span className="section-hint">ACTIVE IN EVERY LOADOUT</span>
+        <span className="head-spacer" />
+        <button className="btn sm" onClick={onManageKit}>
+          <IconGear size={13} />
+          Manage Kit
+        </button>
+      </div>
+
+      {kit.length === 0 ? (
+        <div className="kit-empty">
+          STANDARD KIT IS EMPTY —{" "}
+          <button className="link" onClick={onManageKit}>
+            ADD KIT BINDINGS
+          </button>
+        </div>
+      ) : (
+        <div className="bindings-list">
+          {kit.map((kitBinding, i) => {
+            const stratagem = stratagemFor(kitBinding);
+            if (!stratagem) return null;
+            const shadowed = shadowedByLoadout(kitBinding);
+            return (
+              <BindingCard
+                key={kitBinding.id}
+                binding={kitBinding}
+                stratagem={stratagem}
+                index={i}
+                armed={armed}
+                dimmed={shadowed}
+                tag={
+                  shadowed
+                    ? { text: "OVERRIDDEN IN LOADOUT", tone: "muted" }
+                    : { text: "GLOBAL", tone: "global" }
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <div className="bindings-head">
         <h3 className="section-title">STRATAGEM BINDINGS</h3>
         <span className="section-hint">
           PRESS THE TRIGGER COMBO IN-GAME TO THROW
@@ -117,6 +168,11 @@ export function LoadoutPanel({
                 stratagem={stratagem}
                 index={i}
                 armed={armed}
+                tag={
+                  overridesKit(binding)
+                    ? { text: "OVERRIDES KIT", tone: "global" }
+                    : undefined
+                }
                 onEdit={() => onEditBinding(binding.id)}
                 onDelete={() => onDeleteBinding(binding.id)}
               />
@@ -128,7 +184,13 @@ export function LoadoutPanel({
   );
 }
 
-export function EmptyPanel({ onCreate }: { onCreate: () => void }) {
+export function EmptyPanel({
+  onCreate,
+  onManageKit,
+}: {
+  onCreate: () => void;
+  onManageKit: () => void;
+}) {
   return (
     <main className="loadout-panel empty">
       <span className="empty-emblem big">
@@ -139,10 +201,16 @@ export function EmptyPanel({ onCreate }: { onCreate: () => void }) {
         Select a loadout from the manifest, or create a new one to begin
         configuring stratagem bindings.
       </p>
-      <button className="btn primary" onClick={onCreate}>
-        <IconPlus size={15} />
-        Create Loadout
-      </button>
+      <div className="empty-actions">
+        <button className="btn primary" onClick={onCreate}>
+          <IconPlus size={15} />
+          Create Loadout
+        </button>
+        <button className="btn" onClick={onManageKit}>
+          <IconGear size={15} />
+          Manage Standard Kit
+        </button>
+      </div>
     </main>
   );
 }

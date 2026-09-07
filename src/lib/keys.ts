@@ -2,8 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AppSettings,
   ArrowDir,
+  Binding,
   DirectionKeys,
-  Loadout,
   Stratagem,
 } from "../types";
 
@@ -74,14 +74,36 @@ export interface ActivationConfig {
   }>;
 }
 
+/**
+ * The bindings a loadout actually fires with: its own bindings plus the
+ * Standard Kit, where a loadout binding with the same combo shadows the
+ * kit entry (loadout wins on conflicts).
+ */
+export function effectiveBindings(
+  kit: Binding[],
+  loadoutBindings: Binding[],
+): Binding[] {
+  const shadowedKitIds = new Set(
+    kit
+      .filter((kitBinding) =>
+        loadoutBindings.some((b) => combosEqual(b.combo, kitBinding.combo)),
+      )
+      .map((kitBinding) => kitBinding.id),
+  );
+  return [
+    ...kit.filter((kitBinding) => !shadowedKitIds.has(kitBinding.id)),
+    ...loadoutBindings,
+  ];
+}
+
 export function buildActivationConfig(
-  loadout: Loadout,
+  bindings: Binding[],
   stratagemById: Map<string, Stratagem>,
   directionKeys: DirectionKeys,
 ): ActivationConfig {
   return {
     directionKeys,
-    bindings: loadout.bindings.flatMap((binding) => {
+    bindings: bindings.flatMap((binding) => {
       const stratagem = stratagemById.get(binding.stratagemId);
       if (!stratagem) return [];
       return [

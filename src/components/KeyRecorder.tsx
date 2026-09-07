@@ -13,10 +13,13 @@ export function KeyRecorder({
   value,
   onChange,
   conflicts,
+  overrides,
 }: {
   value: string[];
   onChange: (combo: string[]) => void;
   conflicts: string[][];
+  /** Kit combos this binding is allowed to shadow — shown as an info note. */
+  overrides?: string[][];
 }) {
   const { recording, draft, error, start, cancel } = useComboRecording(
     (combo) => onChange(combo),
@@ -25,6 +28,10 @@ export function KeyRecorder({
   const matchedConflict =
     value.length > 0
       ? conflicts.find((combo) => combosEqual(combo, value))
+      : undefined;
+  const matchedOverride =
+    !matchedConflict && value.length > 0 && overrides
+      ? overrides.find((combo) => combosEqual(combo, value))
       : undefined;
 
   return (
@@ -81,6 +88,10 @@ export function KeyRecorder({
           <span className="conflict-warning">
             <IconAlert size={13} />
             COMBO ALREADY BOUND: {comboToString(matchedConflict)}
+          </span>
+        ) : matchedOverride ? (
+          <span className="override-note">
+            OVERRIDES STANDARD KIT: {comboToString(matchedOverride)}
           </span>
         ) : (
           <span className="recorder-hint">
